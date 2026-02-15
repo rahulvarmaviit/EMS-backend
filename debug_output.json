@@ -1,0 +1,63 @@
+{
+  "users": [
+    {
+      "id": "b9a0d618-e77f-4a63-945d-06698267ca91",
+      "full_name": "Admin User",
+      "role": "ADMIN",
+      "email": null,
+      "mobile_number": "7989498358",
+      "team": null
+    },
+    {
+      "id": "188db446-31c4-4163-9fad-78df9b4a9d1a",
+      "full_name": "sabbu",
+      "role": "LEAD",
+      "email": null,
+      "mobile_number": "9908362543",
+      "team": {
+        "name": "MForce"
+      }
+    },
+    {
+      "id": "bbbfa45b-59e9-47f4-954e-de790c1a1fb7",
+      "full_name": "venkat",
+      "role": "ADMIN",
+      "email": null,
+      "mobile_number": "9000405579",
+      "team": null
+    },
+    {
+      "id": "0692e243-8868-48a8-9a07-f25f9392d2a3",
+      "full_name": "sreya",
+      "role": "LEAD",
+      "email": null,
+      "mobile_number": "9381060587",
+      "team": {
+        "name": "Fullstack"
+      }
+    },
+    {
+      "id": "2b25e017-fcef-4c77-91ea-04188c20d305",
+      "full_name": "kumar",
+      "role": "EMPLOYEE",
+      "email": null,
+      "mobile_number": "9398318533",
+      "team": {
+        "name": "Fullstack"
+      }
+    }
+  ],
+  "targetedAdmins": [
+    {
+      "id": "b9a0d618-e77f-4a63-945d-06698267ca91",
+      "full_name": "Admin User",
+      "role": "ADMIN"
+    },
+    {
+      "id": "bbbfa45b-59e9-47f4-954e-de790c1a1fb7",
+      "full_name": "venkat",
+      "role": "ADMIN"
+    }
+  ],
+  "targetedEmployeesCount": 1
+}

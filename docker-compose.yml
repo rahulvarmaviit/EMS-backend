@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  backend:
+    image: ghcr.io/rahulvarmaviit/ems-backend:latest
+    container_name: ems-backend
+    restart: always
+    ports:
+      - "5000:5000"
+    volumes:
+      # Mount secrets from host
+      - ./config/.env:/usr/src/app/.env
+      - ./config/service-account.json:/usr/src/app/service-account.json
+      # Persist uploads
+      - ./uploads:/usr/src/app/uploads
+    environment:
+      - NODE_ENV=production
+    # If using local DB on host (for testing), use host.docker.internal
+    # extraordinary_network_mode: host 

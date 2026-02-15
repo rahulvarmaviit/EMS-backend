@@ -1,0 +1,154 @@
+[
+  {
+    "id": "cce4c080-0a76-496f-9803-18c338914281",
+    "title": "User Login",
+    "message": "sreya (LEAD) logged in",
+    "recipientName": "venkat",
+    "recipientRole": "ADMIN",
+    "createdAt": "2026-02-11T13:14:58.309Z"
+  },
+  {
+    "id": "e6eafe24-9f57-4288-9901-5e0fcda36067",
+    "title": "User Login",
+    "message": "sreya (LEAD) logged in",
+    "recipientName": "Admin User",
+    "recipientRole": "ADMIN",
+    "createdAt": "2026-02-11T13:14:58.309Z"
+  },
+  {
+    "id": "7c08bc4b-de7d-4818-9245-169077ffa7e4",
+    "title": "User Login",
+    "message": "sreya (EMPLOYEE) logged in",
+    "recipientName": "venkat",
+    "recipientRole": "ADMIN",
+    "createdAt": "2026-02-11T13:08:37.682Z"
+  },
+  {
+    "id": "7636f7ef-e7b1-4890-ae59-f3ce10be5c6e",
+    "title": "User Login",
+    "message": "sreya (EMPLOYEE) logged in",
+    "recipientName": "Admin User",
+    "recipientRole": "ADMIN",
+    "createdAt": "2026-02-11T13:08:37.682Z"
+  },
+  {
+    "id": "65ee3773-9e4f-4b91-a53c-450c35aa31a4",
+    "title": "New User Signup",
+    "message": "sreya signed up",
+    "recipientName": "Admin User",
+    "recipientRole": "ADMIN",
+    "createdAt": "2026-02-11T13:08:37.180Z"
+  },
+  {
+    "id": "a0a6a408-f7f6-4281-abed-87a3258b20f0",
+    "title": "New User Signup",
+    "message": "sreya signed up",
+    "recipientName": "venkat",
+    "recipientRole": "ADMIN",
+    "createdAt": "2026-02-11T13:08:37.180Z"
+  },
+  {
+    "id": "994406cf-dc0f-4699-9682-f3452da2faf9",
+    "title": "User Login",
+    "message": "kumar (EMPLOYEE) logged in",
+    "recipientName": "Admin User",
+    "recipientRole": "ADMIN",
+    "createdAt": "2026-02-11T13:01:37.342Z"
+  },
+  {
+    "id": "b180a967-6fd6-4328-83a0-4a03f3a289e9",
+    "title": "User Login",
+    "message": "kumar (EMPLOYEE) logged in",
+    "recipientName": "venkat",
+    "recipientRole": "ADMIN",
+    "createdAt": "2026-02-11T13:01:37.341Z"
+  },
+  {
+    "id": "e585b7a0-bf20-4327-92af-03ff1b94b8a2",
+    "title": "User Login",
+    "message": "kumar (EMPLOYEE) logged in",
+    "recipientName": "Admin User",
+    "recipientRole": "ADMIN",
+    "createdAt": "2026-02-11T08:15:40.469Z"
+  },
+  {
+    "id": "f75d858e-33ef-4be2-a619-cf387fa2bc6f",
+    "title": "User Login",
+    "message": "kumar (EMPLOYEE) logged in",
+    "recipientName": "venkat",
+    "recipientRole": "ADMIN",
+    "createdAt": "2026-02-11T08:15:40.469Z"
+  },
+  {
+    "id": "1e0770e3-ecea-438d-84be-b10d3c432401",
+    "title": "User Login",
+    "message": "kumar (EMPLOYEE) logged in",
+    "recipientName": "venkat",
+    "recipientRole": "ADMIN",
+    "createdAt": "2026-02-11T07:35:16.220Z"
+  },
+  {
+    "id": "a1308084-7f3e-409e-844a-288a451d146a",
+    "title": "User Login",
+    "message": "kumar (EMPLOYEE) logged in",
+    "recipientName": "Admin User",
+    "recipientRole": "ADMIN",
+    "createdAt": "2026-02-11T07:35:16.220Z"
+  },
+  {
+    "id": "2ede70e9-dc20-4e48-a24a-61106ef5cbbe",
+    "title": "New User Signup",
+    "message": "kumar signed up",
+    "recipientName": "venkat",
+    "recipientRole": "ADMIN",
+    "createdAt": "2026-02-11T07:35:15.954Z"
+  },
+  {
+    "id": "83aeb36a-0b65-4889-81f0-9df987d6502b",
+    "title": "New User Signup",
+    "message": "kumar signed up",
+    "recipientName": "Admin User",
+    "recipientRole": "ADMIN",
+    "createdAt": "2026-02-11T07:35:15.954Z"
+  },
+  {
+    "id": "f565c630-2002-4628-b8af-75846824989f",
+    "title": "User Login",
+    "message": "venkat (EMPLOYEE) logged in",
+    "recipientName": "Admin User",
+    "recipientRole": "ADMIN",
+    "createdAt": "2026-02-11T04:57:14.139Z"
+  },
+  {
+    "id": "1f761648-f439-405e-8f75-b2e599e297e8",
+    "title": "User Login",
+    "message": "venkat (EMPLOYEE) logged in",
+    "recipientName": "Admin User",
+    "recipientRole": "ADMIN",
+    "createdAt": "2026-02-11T04:40:56.282Z"
+  },
+  {
+    "id": "14f7011d-14bd-456d-a78b-79ef8991f150",
+    "title": "New User Signup",
+    "message": "venkat signed up",
+    "recipientName": "Admin User",
+    "recipientRole": "ADMIN",
+    "createdAt": "2026-02-11T04:40:56.160Z"
+  },
+  {
+    "id": "952f6dac-7e67-4e90-92ee-9cd009c2f9f1",
+    "title": "User Login",
+    "message": "venkat (EMPLOYEE) logged in",
+    "recipientName": "Admin User",
+    "recipientRole": "ADMIN",
+    "createdAt": "2026-02-10T15:41:06.236Z"
+  },
+  {
+    "id": "04e0a27f-8591-4de1-85bc-171cd2ce3f8a",
+    "title": "User Login",
+    "message": "sabbu (LEAD) logged in",
+    "recipientName": "Admin User",
+    "recipientRole": "ADMIN",
+    "createdAt": "2026-02-10T15:39:25.424Z"
+  }
+]

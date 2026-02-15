@@ -1,0 +1,220 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(uuid())
+  mobile_number String         @unique
+  password_hash String
+  full_name     String
+  email         String?        @unique
+  role          Role           @default(EMPLOYEE)
+  is_active     Boolean        @default(true)
+  created_at    DateTime       @default(now())
+  team_id       String?
+  fcm_token     String?        // Firebase Cloud Messaging token for push notifications
+  attendance    Attendance[]
+  leaves        LeaveRequest[]
+  login_history LoginHistory[]
+  documents     Document[]
+  notifications Notification[]
+  managed_team  Team?          @relation("TeamLead")
+  team          Team?          @relation("TeamMembers", fields: [team_id], references: [id])
+  device_id     String?        // For Device Binding
+  approved_leaves LeaveRequest[] @relation("ApprovedLeaves")
+  rejected_leaves LeaveRequest[] @relation("RejectedLeaves")
+  revoked_leaves  LeaveRequest[] @relation("RevokedLeaves")
+  game_scores     GameScore[]
+
+  @@map("users")
+}
+
+model GameScore {
+  id          String   @id @default(uuid())
+  game_name   String
+  score       Int
+  moves       Int?     // For memory match, fewer moves = better
+  time_taken  Int?     // In seconds
+  played_at   DateTime @default(now())
+  user_id     String
+  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([game_name, score(sort: Desc)]) // For leaderboard
+  @@map("game_scores")
+}
+
+
+model LoginHistory {
+  id           String   @id @default(uuid())
+  device_name  String?
+  ip_address   String?
+  user_agent   String?
+  logged_in_at DateTime @default(now())
+  user_id      String
+  user         User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@map("login_history")
+}
+
+model Team {
+  id         String   @id @default(uuid())
+  name       String   @unique
+  created_at DateTime @default(now())
+  lead_id    String?  @unique
+  lead       User?    @relation("TeamLead", fields: [lead_id], references: [id])
+  members    User[]   @relation("TeamMembers")
+
+  @@map("teams")
+}
+
+model Location {
+  id            String   @id @default(uuid())
+  name          String
+  latitude      Decimal
+  longitude     Decimal
+  radius_meters Int      @default(50)
+  is_active     Boolean  @default(true)
+  created_at    DateTime @default(now())
+
+  @@map("locations")
+}
+
+model Attendance {
+  id             String           @id @default(uuid())
+  date           DateTime         @db.Date
+  check_in_time  DateTime
+  check_out_time DateTime?
+  check_in_lat   Decimal
+  check_in_long  Decimal
+  check_out_lat  Decimal?
+  check_out_long Decimal?
+  work_done      String?
+  project_name   String?
+  meetings       String?
+  todo_updates   String?
+  notes          String?
+  status         AttendanceStatus
+  user_id        String
+  user           User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, date])
+  @@map("attendance")
+}
+
+model LeaveRequest {
+  id          String      @id @default(uuid())
+  start_date  DateTime    @db.Date
+  end_date    DateTime    @db.Date
+  reason      String
+  status      LeaveStatus @default(PENDING)
+  created_at  DateTime    @default(now())
+  updated_at      DateTime    @updatedAt
+  user_id         String
+  user            User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  approved_by_id  String?
+  approved_by     User?       @relation("ApprovedLeaves", fields: [approved_by_id], references: [id])
+  rejected_by_id  String?
+  rejected_by     User?       @relation("RejectedLeaves", fields: [rejected_by_id], references: [id])
+  revoked_by_id   String?
+  revoked_by      User?       @relation("RevokedLeaves", fields: [revoked_by_id], references: [id])
+  revocation_reason String?
+
+  @@index([user_id])
+  @@map("leave_requests")
+}
+
+enum Role {
+  ADMIN
+  LEAD
+  EMPLOYEE
+}
+
+enum AttendanceStatus {
+  PRESENT
+  LATE
+  HALF_DAY
+  ABSENT
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REVOKED
+}
+
+model Document {
+  id          String   @id @default(uuid())
+  title       String
+  file_path   String
+  uploaded_at DateTime @default(now())
+  user_id     String
+  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@map("documents")
+}
+
+model Notification {
+  id          String           @id @default(uuid())
+  type        NotificationType
+  title       String
+  message     String
+  is_read     Boolean          @default(false)
+  data        Json?            // Optional payload (e.g., leave_id, user_id)
+  created_at  DateTime         @default(now())
+  user_id     String           // Recipient
+  user        User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, created_at])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  USER_LOGIN
+  ATTENDANCE_CHECKIN
+  ATTENDANCE_CHECKOUT
+  LEAVE_REQUEST
+  LEAVE_APPROVED
+  LEAVE_REJECTED
+  LEAVE_REVOKED
+  TEAM_MEMBER_ASSIGNED
+  TEAM_LEAD_ASSIGNED
+  ANNOUNCEMENT
+  EVENT_CREATED
+}
+
+model Announcement {
+  id          String           @id @default(uuid())
+  title       String
+  message     String
+  type        AnnouncementType @default(NORMAL)
+  created_at  DateTime         @default(now())
+  expires_at  DateTime?
+  is_active   Boolean          @default(true)
+
+  @@map("announcements")
+}
+
+enum AnnouncementType {
+  NORMAL
+  URGENT
+}
+
+model Event {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  event_date  DateTime
+  location    String?
+  created_at  DateTime @default(now())
+  is_active   Boolean  @default(true)
+
+  @@map("events")
+}

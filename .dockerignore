@@ -1,0 +1,11 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+.env
+service-account.json
+dist
+coverage
+uploads
+.DS_Store
+Thumbs.db

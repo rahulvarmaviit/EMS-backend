@@ -23,7 +23,11 @@ export async function listUsers(req: Request, res: Response): Promise<void> {
     const skip = (pageNum - 1) * limitNum;
 
     // Build where clause
-    const whereClause: any = { is_active: true };
+    // Exclude SUPER_ADMIN from all lists by default
+    const whereClause: any = {
+      is_active: true,
+      role: { not: 'SUPER_ADMIN' }
+    };
 
     // Lead can only see their team members
     if (userRole === 'LEAD') {
@@ -51,6 +55,17 @@ export async function listUsers(req: Request, res: Response): Promise<void> {
 
     // Filter by role
     if (role) {
+      if (role === 'SUPER_ADMIN') {
+        // Do not allow listing super admins
+        res.json({
+          success: true,
+          data: {
+            users: [],
+            pagination: { page: 1, limit: limitNum, total: 0, totalPages: 0 },
+          },
+        });
+        return;
+      }
       whereClause.role = role as Role;
     }
 

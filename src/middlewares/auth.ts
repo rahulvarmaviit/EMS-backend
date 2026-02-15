@@ -10,7 +10,7 @@ import { logger } from '../utils/logger';
 export interface JwtPayload {
   userId: string;
   mobile_number: string;
-  role: 'ADMIN' | 'LEAD' | 'EMPLOYEE';
+  role: 'SUPER_ADMIN' | 'ADMIN' | 'LEAD' | 'EMPLOYEE';
   iat?: number;
   exp?: number;
 }
@@ -108,7 +108,7 @@ export function optionalAuthenticate(req: Request, res: Response, next: NextFunc
  * Use: authorize('ADMIN') or authorize('ADMIN', 'LEAD')
  * @param allowedRoles - Roles that can access this route
  */
-export function authorize(...allowedRoles: ('ADMIN' | 'LEAD' | 'EMPLOYEE')[]) {
+export function authorize(...allowedRoles: ('SUPER_ADMIN' | 'ADMIN' | 'LEAD' | 'EMPLOYEE')[]) {
   return (req: Request, res: Response, next: NextFunction): void => {
     // Must be authenticated first
     if (!req.user) {
@@ -116,6 +116,12 @@ export function authorize(...allowedRoles: ('ADMIN' | 'LEAD' | 'EMPLOYEE')[]) {
         success: false,
         error: 'Not authenticated'
       });
+      return;
+    }
+
+    // SUPER_ADMIN has access to everything
+    if (req.user.role === 'SUPER_ADMIN') {
+      next();
       return;
     }
 

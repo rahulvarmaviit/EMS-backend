@@ -19,6 +19,16 @@ You must manually copy these files from your local machine to the server's `ems-
 ### C. Copy Docker Compose
 Copy the `docker-compose.yml` file to the server's `ems-backend/` directory.
 
+### D. Run Database Migrations & Seed (Important)
+After the container is running for the first time, initialize the database and create the Super Admin user:
+```bash
+# Run migrations
+docker-compose exec backend npx prisma migrate deploy
+
+# Seed Super Admin (0987654321 / superadmin)
+docker-compose exec backend npx prisma db seed
+```
+
 ## 2. Deploying Updates
 
 When you push code to `main`, GitHub Actions will build a new Docker image. To update the server:
@@ -28,6 +38,9 @@ When you push code to `main`, GitHub Actions will build a new Docker image. To u
 cd ems-backend
 docker-compose pull
 docker-compose up -d
+
+# If there were database changes, run migrations:
+docker-compose exec backend npx prisma migrate deploy
 ```
 
 This commands will:

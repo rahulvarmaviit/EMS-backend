@@ -130,6 +130,7 @@ model LeaveRequest {
 }
 
 enum Role {
+  SUPER_ADMIN
   ADMIN
   LEAD
   EMPLOYEE

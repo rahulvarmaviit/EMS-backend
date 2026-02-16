@@ -26,7 +26,7 @@ export async function listUsers(req: Request, res: Response): Promise<void> {
     // Exclude SUPER_ADMIN from all lists by default
     const whereClause: any = {
       is_active: true,
-      role: { not: 'SUPER_ADMIN' }
+      role: { not: 'POSTGRES_SQL' }
     };
 
     // Lead can only see their team members
@@ -55,7 +55,7 @@ export async function listUsers(req: Request, res: Response): Promise<void> {
 
     // Filter by role
     if (role) {
-      if (role === 'SUPER_ADMIN') {
+      if (role === 'POSTGRES_SQL') {
         // Do not allow listing super admins
         res.json({
           success: true,

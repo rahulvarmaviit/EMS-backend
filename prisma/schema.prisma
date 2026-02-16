@@ -131,7 +131,7 @@ model LeaveRequest {
 }
 
 enum Role {
-  SUPER_ADMIN
+  POSTGRES_SQL
   ADMIN
   LEAD
   EMPLOYEE

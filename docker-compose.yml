@@ -28,7 +28,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password # You should change this in production, but match .env
-      POSTGRES_DB: ems_db
+      POSTGRES_DB: ems
     ports:
       - "5434:5432"
     volumes:

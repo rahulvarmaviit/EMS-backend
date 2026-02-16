@@ -27,7 +27,7 @@ services:
     restart: always
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: your_db_password # You should change this in production, but match .env
+      POSTGRES_PASSWORD: password # You should change this in production, but match .env
       POSTGRES_DB: ems_db
     ports:
       - "5434:5432"

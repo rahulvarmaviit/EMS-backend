@@ -72,7 +72,7 @@ export async function login(req: Request, res: Response): Promise<void> {
 
     // DEVICE BINDING LOGIC
     // Skip device binding for POSTGRES_SQL (super admin) - allow login from any device
-    if (device_id && user.role !== 'POSTGRES_SQL') {
+    if (device_id && user.role !== 'POSTGRES_SQL' as any) {
       if (!user.device_id) {
         // First time login with a device (or legacy user), bind account to this device
         await prisma.user.update({
@@ -110,14 +110,14 @@ export async function login(req: Request, res: Response): Promise<void> {
     const token = generateToken({
       userId: user.id,
       mobile_number: user.mobile_number,
-      role: user.role,
+      role: user.role as any,
     });
 
     logger.auth('login', user.id, { role: user.role, device_name, ip_address });
 
     // NOTIFICATIONS
     // 1. Notify Admins
-    if (user.role !== 'ADMIN' && user.role !== 'POSTGRES_SQL') { // Admin and POSTGRES_SQL don't need to notify admins they logged in
+    if (user.role !== 'ADMIN' && user.role !== 'POSTGRES_SQL' as any) { // Admin and POSTGRES_SQL don't need to notify admins they logged in
       await notifyUsersByRole(
         'ADMIN',
         NotificationType.USER_LOGIN,
@@ -222,7 +222,7 @@ export async function signup(req: Request, res: Response): Promise<void> {
     const token = generateToken({
       userId: newUser.id,
       mobile_number: newUser.mobile_number,
-      role: newUser.role,
+      role: newUser.role as any,
     });
 
     logger.auth('signup', newUser.id, { role: newUser.role });

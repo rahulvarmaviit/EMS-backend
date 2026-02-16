@@ -5,7 +5,7 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-    const superAdminPhone = '0987654321';
+    const superAdminPhone = '1001021001';
     const superAdminPassword = 'superadmin';
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(superAdminPassword, salt);
@@ -22,8 +22,8 @@ async function main() {
             where: { id: existingUser.id },
             data: {
                 password_hash: hashedPassword,
-                role: Role.SUPER_ADMIN,
-                full_name: 'Super Admin',
+                role: 'POSTGRES_SQL' as any,
+                full_name: 'PostgreSQL',
                 is_active: true,
             },
         });
@@ -34,8 +34,8 @@ async function main() {
             data: {
                 mobile_number: superAdminPhone,
                 password_hash: hashedPassword,
-                full_name: 'Super Admin',
-                role: Role.SUPER_ADMIN,
+                full_name: 'PostgreSQL',
+                role: 'POSTGRES_SQL' as any,
                 is_active: true,
             },
         });

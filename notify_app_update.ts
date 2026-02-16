@@ -1,5 +1,5 @@
 import { prisma } from './src/config/database';
-import { sendPushNotification } from './src/services/notificationService';
+import notificationService from './src/services/notificationService';
 import { NotificationType } from '@prisma/client';
 import fs from 'fs';
 import path from 'path';
@@ -63,15 +63,15 @@ async function notifyAppUpdate() {
         for (const user of users as any[]) {
             if (user.fcm_token) {
                 try {
-                    await sendPushNotification({
-                        token: user.fcm_token,
-                        title: `Update Available v${newVersion}`,
-                        body: 'A new version is available. Tap to update now!',
-                        data: {
+                    await notificationService.sendPushNotification(
+                        user.fcm_token,
+                        `Update Available v${newVersion}`,
+                        'A new version is available. Tap to update now!',
+                        {
                             type: 'APP_UPDATE',
                             version: newVersion,
-                        },
-                    });
+                        }
+                    );
                     successCount++;
                     console.log(`✓ Sent to ${user.full_name}`);
                 } catch (error) {

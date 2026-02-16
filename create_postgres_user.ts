@@ -16,10 +16,11 @@ async function createPostgresUser() {
         if (existingUser) {
             console.log('PostgreSQL User already exists.');
             // Update role if needed
-            if (existingUser.role !== Role.POSTGRES_SQL) {
+            // Cast to any to avoid TS errors if types aren't fully updated in ts-node context
+            if (existingUser.role !== 'POSTGRES_SQL' as any) {
                 await prisma.user.update({
                     where: { id: existingUser.id },
-                    data: { role: Role.POSTGRES_SQL }
+                    data: { role: 'POSTGRES_SQL' as any }
                 });
                 console.log('Updated existing user role to POSTGRES_SQL');
             }
@@ -34,7 +35,7 @@ async function createPostgresUser() {
                 mobile_number: mobile,
                 password_hash: hash,
                 full_name: 'PostgreSQL',
-                role: Role.POSTGRES_SQL,
+                role: 'POSTGRES_SQL' as any,
                 is_active: true,
             },
         });

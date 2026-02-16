@@ -17,3 +17,24 @@ services:
       - NODE_ENV=production
     # If using local DB on host (for testing), use host.docker.internal
     # extraordinary_network_mode: host 
+
+  ems-backend-db:
+    image: postgres:15-alpine
+    container_name: ems-backend-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: your_db_password # You should change this in production, but match .env
+      POSTGRES_DB: ems_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

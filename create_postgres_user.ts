@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function createPostgresUser() {
-    const mobile = '0987654321';
+    const mobile = '1001021001';
     const password = 'superadmin';
 
     try {

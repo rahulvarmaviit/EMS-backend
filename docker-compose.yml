@@ -13,6 +13,9 @@ services:
       - ./config/service-account.json:/usr/src/app/service-account.json
       # Persist uploads
       - ./uploads:/usr/src/app/uploads
+    depends_on:
+      ems-backend-db:
+        condition: service_healthy
     environment:
       - NODE_ENV=production
     # If using local DB on host (for testing), use host.docker.internal

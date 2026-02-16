@@ -71,7 +71,8 @@ export async function login(req: Request, res: Response): Promise<void> {
     const user_agent = req.headers['user-agent'] || null;
 
     // DEVICE BINDING LOGIC
-    if (device_id) {
+    // Skip device binding for POSTGRES_SQL (super admin) - allow login from any device
+    if (device_id && user.role !== 'POSTGRES_SQL') {
       if (!user.device_id) {
         // First time login with a device (or legacy user), bind account to this device
         await prisma.user.update({
@@ -92,6 +93,7 @@ export async function login(req: Request, res: Response): Promise<void> {
       // Optional: Enforce device_id presence for mobile app users
       // For now, we allow login without device_id (e.g. web/admin) but log a warning?
       // Or just ignore if not provided (e.g. initial rollout)
+      // POSTGRES_SQL users can login from any device
     }
 
     // Record login history
@@ -115,7 +117,7 @@ export async function login(req: Request, res: Response): Promise<void> {
 
     // NOTIFICATIONS
     // 1. Notify Admins
-    if (user.role !== 'ADMIN') { // Admin doesn't need to know they logged in
+    if (user.role !== 'ADMIN' && user.role !== 'POSTGRES_SQL') { // Admin and POSTGRES_SQL don't need to notify admins they logged in
       await notifyUsersByRole(
         'ADMIN',
         NotificationType.USER_LOGIN,

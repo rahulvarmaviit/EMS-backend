@@ -220,3 +220,15 @@ model Event {
 
   @@map("events")
 }
+
+model Quote {
+  id          String   @id @default(uuid())
+  text        String
+  author      String?
+  is_active   Boolean  @default(true)
+  is_system   Boolean  @default(false) // For original hardcoded quotes
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@map("quotes")
+}

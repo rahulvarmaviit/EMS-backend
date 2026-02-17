@@ -1,4 +1,3 @@
-
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -20,17 +19,18 @@ const initialQuotes = [
     "Opportunities don't happen, you create them."
 ];
 
-async function main() {
+export async function seedQuotes(prismaClient?: PrismaClient) {
+    const p = prismaClient || prisma;
     console.log('Seeding quotes...');
 
     for (const text of initialQuotes) {
         // Check if exists
-        const existing = await prisma.quote.findFirst({
+        const existing = await p.quote.findFirst({
             where: { text }
         });
 
         if (!existing) {
-            await prisma.quote.create({
+            await p.quote.create({
                 data: {
                     text,
                     is_active: true,
@@ -41,12 +41,3 @@ async function main() {
         }
     }
 }
-
-main()
-    .catch((e) => {
-        console.error(e);
-        process.exit(1);
-    })
-    .finally(async () => {
-        await prisma.$disconnect();
-    });

@@ -276,7 +276,7 @@ export async function getUserLeaves(req: Request, res: Response): Promise<void> 
         const requesterId = req.user?.userId;
 
         // Verify permissions
-        if (requesterRole !== 'ADMIN' && requesterRole !== 'LEAD') {
+        if (requesterRole !== 'POSTGRES_SQL' && requesterRole !== 'ADMIN' && requesterRole !== 'LEAD') {
             res.status(403).json({
                 success: false,
                 error: 'Unauthorized access',
@@ -357,7 +357,7 @@ export async function updateLeaveStatus(req: Request, res: Response): Promise<vo
         }
 
         // Verify permissions
-        if (requesterRole !== 'ADMIN' && requesterRole !== 'LEAD') {
+        if (requesterRole !== 'POSTGRES_SQL' && requesterRole !== 'ADMIN' && requesterRole !== 'LEAD') {
             res.status(403).json({
                 success: false,
                 error: 'Unauthorized access',
@@ -469,7 +469,7 @@ export async function revokeLeave(req: Request, res: Response): Promise<void> {
         }
 
         // Verify permissions
-        if (requesterRole !== 'ADMIN' && requesterRole !== 'LEAD') {
+        if (requesterRole !== 'POSTGRES_SQL' && requesterRole !== 'ADMIN' && requesterRole !== 'LEAD') {
             res.status(403).json({
                 success: false,
                 error: 'Unauthorized access',

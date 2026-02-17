@@ -103,9 +103,29 @@ model Attendance {
   status         AttendanceStatus
   user_id        String
   user           User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  breaks         Break[]
 
   @@index([user_id, date])
   @@map("attendance")
+}
+
+model Break {
+  id            String     @id @default(uuid())
+  type          BreakType
+  duration_min  Int        // Expected duration in minutes (5, 15, 60)
+  start_time    DateTime   @default(now())
+  end_time      DateTime?  // Null means break is still active
+  attendance_id String
+  attendance    Attendance @relation(fields: [attendance_id], references: [id], onDelete: Cascade)
+
+  @@index([attendance_id])
+  @@map("breaks")
+}
+
+enum BreakType {
+  WALKING
+  TEA
+  LUNCH
 }
 
 model LeaveRequest {

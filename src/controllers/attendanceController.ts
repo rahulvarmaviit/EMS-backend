@@ -7,7 +7,7 @@ import { isWithinGeofence, validateCoordinates, GeoLocation } from '../services/
 import { logger } from '../utils/logger';
 import config from '../config/env';
 import { notifyUsersByRole, notifyTeamLead } from '../services/notificationService';
-import { NotificationType } from '@prisma/client';
+import { NotificationType, BreakType } from '@prisma/client';
 
 // Helper to get today's date at UTC midnight (for DATE column compatibility)
 function getUtcMidnight(): Date {
@@ -106,14 +106,21 @@ export async function checkIn(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    // Determine status (on-time or late)
+    // Determine status based on office timing rules
     const now = new Date();
     const checkInHour = now.getHours();
     const checkInMinutes = now.getMinutes();
 
-    // Late threshold: After 9:15 AM (configurable)
-    let status: 'PRESENT' | 'LATE' = 'PRESENT';
-    if (checkInHour > 9 || (checkInHour === 9 && checkInMinutes > config.LATE_THRESHOLD_MINUTES)) {
+    // Office starts at OFFICE_START_HOUR (default 10 AM)
+    // LATE after OFFICE_START_HOUR + LATE_THRESHOLD_MINUTES (default 11 AM)
+    // HALF_DAY after HALF_DAY_HOUR (default 12 PM)
+    const lateAfterHour = config.OFFICE_START_HOUR + Math.floor(config.LATE_THRESHOLD_MINUTES / 60);
+    const lateAfterMinutes = config.LATE_THRESHOLD_MINUTES % 60;
+
+    let status: 'PRESENT' | 'LATE' | 'HALF_DAY' = 'PRESENT';
+    if (checkInHour > config.HALF_DAY_HOUR || (checkInHour === config.HALF_DAY_HOUR && checkInMinutes > 0)) {
+      status = 'HALF_DAY';
+    } else if (checkInHour > lateAfterHour || (checkInHour === lateAfterHour && checkInMinutes > lateAfterMinutes)) {
       status = 'LATE';
     }
 
@@ -233,13 +240,31 @@ export async function checkOut(req: Request, res: Response): Promise<void> {
       return;
     }
 
+    // Block checkout if user has an active break
+    const attendanceWithBreaks = await prisma.attendance.findFirst({
+      where: { id: existingAttendance.id },
+      include: { breaks: true },
+    });
+    if (attendanceWithBreaks) {
+      const activeBreak = attendanceWithBreaks.breaks.find((b: any) => !b.end_time);
+      if (activeBreak) {
+        res.status(400).json({
+          success: false,
+          error: `You are currently on a ${(activeBreak as any).type} break. Please end your break before checking out.`,
+        });
+        return;
+      }
+    }
+
     // Calculate work hours and update status if needed
     const checkInTime = new Date(existingAttendance.check_in_time);
     const checkOutTime = new Date();
     const hoursWorked = (checkOutTime.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
+    const checkOutHour = checkOutTime.getHours();
 
     let status = existingAttendance.status;
-    if (hoursWorked < config.HALF_DAY_HOURS) {
+    // HALF_DAY if checking out before HALF_DAY_HOUR (default 12 PM)
+    if (checkOutHour < config.HALF_DAY_HOUR) {
       status = 'HALF_DAY';
     }
 
@@ -333,6 +358,7 @@ export async function getSelfAttendance(req: Request, res: Response): Promise<vo
       prisma.attendance.findMany({
         where: { user_id: userId },
         orderBy: { date: 'desc' },
+        include: { breaks: { orderBy: { start_time: 'asc' } } },
         take: limitNum,
         skip,
       }),
@@ -344,12 +370,24 @@ export async function getSelfAttendance(req: Request, res: Response): Promise<vo
     res.json({
       success: true,
       data: {
-        attendance: attendance.map((a: { id: string; date: Date; check_in_time: Date; check_out_time: Date | null; status: string }) => ({
+        attendance: attendance.map((a: any) => ({
           id: a.id,
           date: a.date.toISOString().split('T')[0],
           check_in_time: a.check_in_time,
           check_out_time: a.check_out_time,
           status: a.status,
+          work_done: a.work_done,
+          project_name: a.project_name,
+          meetings: a.meetings,
+          todo_updates: a.todo_updates,
+          notes: a.notes,
+          breaks: (a.breaks || []).map((b: any) => ({
+            id: b.id,
+            type: b.type,
+            duration_min: b.duration_min,
+            start_time: b.start_time,
+            end_time: b.end_time,
+          })),
         })),
         pagination: {
           page: pageNum,
@@ -482,7 +520,7 @@ export async function getUserAttendance(req: Request, res: Response): Promise<vo
     const requesterId = req.user?.userId;
 
     // Verify permissions
-    if (requesterRole !== 'ADMIN' && requesterRole !== 'LEAD') {
+    if (requesterRole !== 'POSTGRES_SQL' && requesterRole !== 'ADMIN' && requesterRole !== 'LEAD') {
       res.status(403).json({
         success: false,
         error: 'Unauthorized access',
@@ -517,6 +555,7 @@ export async function getUserAttendance(req: Request, res: Response): Promise<vo
         orderBy: { date: 'desc' },
         take: limitNum,
         skip,
+        include: { breaks: true },
       }),
       prisma.attendance.count({
         where: { user_id: userId },
@@ -537,6 +576,7 @@ export async function getUserAttendance(req: Request, res: Response): Promise<vo
           meetings: a.meetings,
           todo_updates: a.todo_updates,
           notes: a.notes,
+          breaks: a.breaks, // Include breaks
         })),
         pagination: {
           page: pageNum,
@@ -555,4 +595,212 @@ export async function getUserAttendance(req: Request, res: Response): Promise<vo
   }
 }
 
-export default { checkIn, checkOut, getSelfAttendance, getTeamAttendance, getUserAttendance };
+/**
+ * POST /api/attendance/break/start
+ * Start a break for the current user
+ */
+export async function startBreak(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user?.userId;
+    const { type } = req.body; // WALKING, TEA, LUNCH
+
+    // Validate break type
+    const validTypes: BreakType[] = ['WALKING', 'TEA', 'LUNCH'];
+    if (!type || !validTypes.includes(type)) {
+      res.status(400).json({
+        success: false,
+        error: 'Invalid break type. Must be WALKING, TEA, or LUNCH.',
+      });
+      return;
+    }
+
+    // Determine duration
+    const durationMap: Record<BreakType, number> = {
+      WALKING: 5,
+      TEA: 15,
+      LUNCH: 60,
+    };
+    const durationMin = durationMap[type as BreakType];
+
+    // Find today's check-in
+    const today = getUtcMidnight();
+    const attendance = await prisma.attendance.findFirst({
+      where: {
+        user_id: userId,
+        date: today,
+      },
+      include: { breaks: true },
+    });
+
+    if (!attendance) {
+      res.status(400).json({
+        success: false,
+        error: 'You have not checked in today.',
+      });
+      return;
+    }
+
+    if (attendance.check_out_time) {
+      res.status(400).json({
+        success: false,
+        error: 'You have already checked out today.',
+      });
+      return;
+    }
+
+    // Check for active break
+    const activeBreak = attendance.breaks.find((b: any) => !b.end_time);
+    if (activeBreak) {
+      res.status(400).json({
+        success: false,
+        error: 'You already have an active break. Please end it first.',
+      });
+      return;
+    }
+
+    // Lunch can only be taken once per day
+    if (type === 'LUNCH') {
+      const lunchTaken = attendance.breaks.some((b: any) => b.type === 'LUNCH');
+      if (lunchTaken) {
+        res.status(400).json({
+          success: false,
+          error: 'Lunch break already taken today.',
+        });
+        return;
+      }
+    }
+
+    // Create break record
+    const breakRecord = await prisma.break.create({
+      data: {
+        type: type as BreakType,
+        duration_min: durationMin,
+        attendance_id: attendance.id,
+      },
+    });
+
+    logger.info('Break started', { userId, type, durationMin, breakId: breakRecord.id });
+
+    res.status(201).json({
+      success: true,
+      message: `${type} break started (${durationMin} min)`,
+      data: {
+        break: {
+          id: breakRecord.id,
+          type: breakRecord.type,
+          duration_min: breakRecord.duration_min,
+          start_time: breakRecord.start_time,
+          end_time: breakRecord.end_time,
+        },
+      },
+    });
+  } catch (error) {
+    logger.error('Start break error', { error: (error as Error).message });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to start break.',
+    });
+  }
+}
+
+/**
+ * POST /api/attendance/break/end
+ * End the current active break
+ */
+export async function endBreak(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user?.userId;
+
+    // Find today's check-in
+    const today = getUtcMidnight();
+    const attendance = await prisma.attendance.findFirst({
+      where: {
+        user_id: userId,
+        date: today,
+      },
+      include: { breaks: true },
+    });
+
+    if (!attendance) {
+      res.status(400).json({
+        success: false,
+        error: 'You have not checked in today.',
+      });
+      return;
+    }
+
+    // Find active break
+    const activeBreak = attendance.breaks.find((b: any) => !b.end_time);
+    if (!activeBreak) {
+      res.status(400).json({
+        success: false,
+        error: 'No active break to end.',
+      });
+      return;
+    }
+
+    // End the break
+    const updatedBreak = await prisma.break.update({
+      where: { id: activeBreak.id },
+      data: { end_time: new Date() },
+    });
+
+    logger.info('Break ended', { userId, breakId: activeBreak.id, type: activeBreak.type });
+
+    res.json({
+      success: true,
+      message: 'Break ended successfully',
+      data: {
+        break: {
+          id: updatedBreak.id,
+          type: updatedBreak.type,
+          duration_min: updatedBreak.duration_min,
+          start_time: updatedBreak.start_time,
+          end_time: updatedBreak.end_time,
+        },
+      },
+    });
+  } catch (error) {
+    logger.error('End break error', { error: (error as Error).message });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to end break.',
+    });
+  }
+}
+
+/**
+ * GET /api/attendance/breaks/:attendanceId
+ * Get all breaks for a specific attendance record (Admin/Lead)
+ */
+export async function getBreaks(req: Request, res: Response): Promise<void> {
+  try {
+    const { attendanceId } = req.params;
+
+    const breaks = await prisma.break.findMany({
+      where: { attendance_id: attendanceId },
+      orderBy: { start_time: 'asc' },
+    });
+
+    res.json({
+      success: true,
+      data: {
+        breaks: breaks.map((b: any) => ({
+          id: b.id,
+          type: b.type,
+          duration_min: b.duration_min,
+          start_time: b.start_time,
+          end_time: b.end_time,
+        })),
+      },
+    });
+  } catch (error) {
+    logger.error('Get breaks error', { error: (error as Error).message });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch breaks.',
+    });
+  }
+}
+
+export default { checkIn, checkOut, getSelfAttendance, getTeamAttendance, getUserAttendance, startBreak, endBreak, getBreaks };

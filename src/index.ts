@@ -14,8 +14,6 @@ import { requestLogger } from './middlewares/requestLogger';
 import routes from './routes';
 
 
-import documentRoutes from './routes/documentRoutes';
-import quoteRoutes from './routes/quoteRoutes';
 import { checkUpdate, downloadApp } from './controllers/updateController';
 
 
@@ -98,8 +96,6 @@ app.get('/health', async (req: Request, res: Response) => {
 
 // Mount all API routes under /api prefix
 app.use('/api', routes);
-app.use('/api/documents', documentRoutes);
-app.use('/api/quotes', quoteRoutes);
 
 // ============================================
 // ERROR HANDLING

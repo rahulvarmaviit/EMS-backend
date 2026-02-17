@@ -20,8 +20,10 @@ export const config = {
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d', // 7 days for mobile-friendly sessions
 
   // Business rules
-  LATE_THRESHOLD_MINUTES: parseInt(process.env.LATE_THRESHOLD_MINUTES || '15', 10), // 15 min grace period
-  HALF_DAY_HOURS: parseInt(process.env.HALF_DAY_HOURS || '4', 10), // Less than 4 hours = half day
+  OFFICE_START_HOUR: parseInt(process.env.OFFICE_START_HOUR || '10', 10), // Office starts at 10 AM
+  OFFICE_END_HOUR: parseInt(process.env.OFFICE_END_HOUR || '18', 10), // Office ends at 6 PM
+  LATE_THRESHOLD_MINUTES: parseInt(process.env.LATE_THRESHOLD_MINUTES || '60', 10), // 60 min grace (LATE after 11 AM)
+  HALF_DAY_HOUR: parseInt(process.env.HALF_DAY_HOUR || '14', 10), // HALF_DAY if check-in after 2 PM or check-out before 2 PM
 
   // Geofencing
   SKIP_GEOFENCE: process.env.SKIP_GEOFENCE === 'true',

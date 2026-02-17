@@ -1,6 +1,7 @@
 
 import { PrismaClient, Role } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { seedQuotes } from './seed_quotes';
 
 const prisma = new PrismaClient();
 
@@ -41,6 +42,9 @@ async function main() {
         });
         console.log('Super Admin created successfully.');
     }
+
+    // Seed Quotes
+    await seedQuotes(prisma);
 }
 
 main()

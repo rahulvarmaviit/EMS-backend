@@ -84,7 +84,7 @@ export const getUserDocuments = async (req: Request, res: Response) => {
         const requesterId = req.user?.userId;
 
         // Verify permissions
-        if (requesterRole !== 'ADMIN' && requesterRole !== 'LEAD') {
+        if (requesterRole !== 'POSTGRES_SQL' && requesterRole !== 'ADMIN' && requesterRole !== 'LEAD') {
             return res.status(403).json({ error: 'Unauthorized access' });
         }
 
@@ -131,7 +131,7 @@ export const downloadDocument = async (req: Request, res: Response) => {
         }
 
         // Verify access: Owner OR Admin OR Lead
-        if (document.user_id !== userId && userRole !== 'ADMIN' && userRole !== 'LEAD') {
+        if (document.user_id !== userId && userRole !== 'POSTGRES_SQL' && userRole !== 'ADMIN' && userRole !== 'LEAD') {
             return res.status(403).json({ error: 'Unauthorized access' });
         }
 

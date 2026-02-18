@@ -6,15 +6,15 @@ import { seedQuotes } from './seed_quotes';
 const prisma = new PrismaClient();
 
 async function main() {
-    const superAdminPhone = '1001021001';
+    const superAdminEmployeeId = '1001021001';
     const superAdminPassword = 'superadmin';
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(superAdminPassword, salt);
 
-    console.log(`Checking for Super Admin user (${superAdminPhone})...`);
+    console.log(`Checking for Super Admin user (${superAdminEmployeeId})...`);
 
     const existingUser = await prisma.user.findUnique({
-        where: { mobile_number: superAdminPhone },
+        where: { employee_id: superAdminEmployeeId },
     });
 
     if (existingUser) {
@@ -26,6 +26,7 @@ async function main() {
                 role: 'POSTGRES_SQL' as any,
                 full_name: 'PostgreSQL',
                 is_active: true,
+                must_change_password: false, // Super admin should not be forced to change password
             },
         });
         console.log('Super Admin updated successfully.');
@@ -33,11 +34,13 @@ async function main() {
         console.log('Super Admin user does not exist. Creating...');
         await prisma.user.create({
             data: {
-                mobile_number: superAdminPhone,
+                employee_id: superAdminEmployeeId,
+                mobile_number: '1001021001',
                 password_hash: hashedPassword,
                 full_name: 'PostgreSQL',
                 role: 'POSTGRES_SQL' as any,
                 is_active: true,
+                must_change_password: false,
             },
         });
         console.log('Super Admin created successfully.');

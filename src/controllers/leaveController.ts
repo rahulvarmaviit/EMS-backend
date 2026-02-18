@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import { prisma } from '../config/database';
 import { logger } from '../utils/logger';
 import { notifyUsersByRole, notifyTeamLead, createNotification } from '../services/notificationService';
+import { emailService } from '../services/emailService';
 import { NotificationType } from '@prisma/client';
 
 /**
@@ -12,12 +13,12 @@ import { NotificationType } from '@prisma/client';
 export async function createLeaveRequest(req: Request, res: Response): Promise<void> {
     try {
         const userId = req.user?.userId;
-        const { start_date, end_date, reason } = req.body;
+        const { start_date, end_date, reason, subject } = req.body;
 
-        if (!start_date || !end_date || !reason) {
+        if (!start_date || !end_date || !reason || !subject) {
             res.status(400).json({
                 success: false,
-                error: 'Start date, end date, and reason are required',
+                error: 'Start date, end date, subject, and reason are required',
             });
             return;
         }
@@ -63,21 +64,70 @@ export async function createLeaveRequest(req: Request, res: Response): Promise<v
             return;
         }
 
+        // Fetch user for notification details
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            include: { team: true }
+        });
+        const userName = user?.full_name || 'User';
+
+        // EMAIL VALIDATION
+        // 1. Check User Email
+        if (!user?.email) {
+            res.status(400).json({
+                success: false,
+                error: 'Please update your email in profile section',
+            });
+            return;
+        }
+
+        // 2. Check Lead Email (if applicable)
+        let leadEmail: string | undefined;
+        let leadId: string | undefined;
+
+        if (user.team_id) {
+            const team = await prisma.team.findUnique({
+                where: { id: user.team_id },
+                include: { lead: true }
+            });
+
+            if (team?.lead) {
+                leadId = team.lead.id;
+                if (!team.lead.email) {
+                    res.status(400).json({
+                        success: false,
+                        error: 'Team Lead havent updated the email in profile section',
+                    });
+                    return;
+                }
+                leadEmail = team.lead.email;
+            }
+        }
+
         const leave = await prisma.leaveRequest.create({
             data: {
                 user_id: userId!,
                 start_date: startDate,
                 end_date: endDate,
+                subject,
                 reason,
                 status: 'PENDING',
-            },
+            } as any,
         });
 
-        // Fetch user for notification details
-        const user = await prisma.user.findUnique({ where: { id: userId } });
-        const userName = user?.full_name || 'User';
-
         logger.info(`Leave request created by user ${userId}`);
+
+        // EMAIL NOTIFICATION
+        if (leadEmail) {
+            emailService.sendLeaveRequestEmail(
+                leadEmail,
+                userName,
+                subject,
+                reason,
+                startDate,
+                endDate
+            ).catch((err: any) => logger.error('Failed to send email to lead', err));
+        }
 
         // NOTIFICATIONS
         // 1. Notify Admins
@@ -344,7 +394,7 @@ export async function getUserLeaves(req: Request, res: Response): Promise<void> 
 export async function updateLeaveStatus(req: Request, res: Response): Promise<void> {
     try {
         const { id } = req.params;
-        const { status } = req.body;
+        const { status, subject, reason } = req.body;
         const requesterRole = req.user?.role;
         const requesterId = req.user?.userId;
 
@@ -396,7 +446,11 @@ export async function updateLeaveStatus(req: Request, res: Response): Promise<vo
             }
         }
 
-        const updateData: any = { status };
+        const updateData: any = {
+            status,
+            response_subject: subject,
+            response_reason: reason
+        };
         if (status === 'APPROVED') {
             updateData.approved_by_id = requesterId;
         } else if (status === 'REJECTED') {
@@ -434,6 +488,20 @@ export async function updateLeaveStatus(req: Request, res: Response): Promise<vo
             { leaveId: leave.id, status }
         );
 
+        // EMAIL NOTIFICATION (Status Update)
+        if (leave.user.email) {
+            emailService.sendLeaveStatusUpdateEmail(
+                leave.user.email,
+                leave.user.full_name,
+                status as 'APPROVED' | 'REJECTED',
+                leave.start_date,
+                leave.end_date,
+                updatedLeave.approved_by?.full_name || updatedLeave.rejected_by?.full_name,
+                subject,
+                reason
+            ).catch((err: any) => logger.error('Failed to send status update email', err));
+        }
+
         res.json({
             success: true,
             message: `Leave request ${status.toLowerCase()}`,
@@ -456,7 +524,7 @@ export async function updateLeaveStatus(req: Request, res: Response): Promise<vo
 export async function revokeLeave(req: Request, res: Response): Promise<void> {
     try {
         const { id } = req.params;
-        const { reason } = req.body;
+        const { subject, reason } = req.body;
         const requesterRole = req.user?.role;
         const requesterId = req.user?.userId;
 
@@ -520,7 +588,9 @@ export async function revokeLeave(req: Request, res: Response): Promise<void> {
                 status: 'REVOKED',
                 revoked_by_id: requesterId,
                 revocation_reason: reason.trim(),
-            },
+                response_subject: subject,
+                response_reason: reason.trim(),
+            } as any,
             include: {
                 approved_by: { select: { id: true, full_name: true } },
                 revoked_by: { select: { id: true, full_name: true } },
@@ -542,6 +612,20 @@ export async function revokeLeave(req: Request, res: Response): Promise<void> {
             `Your approved leave has been revoked. Reason: ${reason.trim()}`,
             { leaveId: leave.id, reason: reason.trim() }
         );
+
+        // EMAIL NOTIFICATION (Revocation)
+        if (leave.user.email) {
+            emailService.sendLeaveStatusUpdateEmail(
+                leave.user.email,
+                leave.user.full_name,
+                'REVOKED',
+                leave.start_date,
+                leave.end_date,
+                updatedLeave.revoked_by?.full_name,
+                subject,
+                reason.trim()
+            ).catch((err: any) => logger.error('Failed to send revocation email', err));
+        }
 
         res.json({
             success: true,

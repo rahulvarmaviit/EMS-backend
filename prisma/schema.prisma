@@ -10,14 +10,18 @@ datasource db {
 
 model User {
   id            String         @id @default(uuid())
-  mobile_number String         @unique
+  employee_id   String         @unique
   password_hash String
+  must_change_password Boolean @default(true)
   full_name     String
+  mobile_number String?        @unique
   email         String?        @unique
   role          Role           @default(EMPLOYEE)
   is_active     Boolean        @default(true)
   created_at    DateTime       @default(now())
   team_id       String?
+  dob           DateTime?      // Date of Birth
+  gender        String?        // Gender
   fcm_token     String?        // Firebase Cloud Messaging token for push notifications
   attendance    Attendance[]
   leaves        LeaveRequest[]
@@ -132,6 +136,7 @@ model LeaveRequest {
   id          String      @id @default(uuid())
   start_date  DateTime    @db.Date
   end_date    DateTime    @db.Date
+  subject     String      @default("Leave Request") // Default for existing records
   reason      String
   status      LeaveStatus @default(PENDING)
   created_at  DateTime    @default(now())
@@ -145,6 +150,8 @@ model LeaveRequest {
   revoked_by_id   String?
   revoked_by      User?       @relation("RevokedLeaves", fields: [revoked_by_id], references: [id])
   revocation_reason String?
+  response_subject  String?
+  response_reason   String?
 
   @@index([user_id])
   @@map("leave_requests")
@@ -210,6 +217,7 @@ enum NotificationType {
   TEAM_LEAD_ASSIGNED
   ANNOUNCEMENT
   EVENT_CREATED
+  BIRTHDAY
 }
 
 model Announcement {

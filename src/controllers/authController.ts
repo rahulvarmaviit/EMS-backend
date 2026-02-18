@@ -11,33 +11,33 @@ import { NotificationType } from '@prisma/client';
 
 /**
  * POST /api/auth/login
- * Authenticate user with mobile number and password
+ * Authenticate user with employee ID and password
  * Returns JWT token and user info on success
  */
 export async function login(req: Request, res: Response): Promise<void> {
   try {
-    const { mobile_number, password } = req.body;
+    const { employee_id, password } = req.body;
 
     // Validate required fields
-    if (!mobile_number || !password) {
+    if (!employee_id || !password) {
       res.status(400).json({
         success: false,
-        error: 'Mobile number and password are required',
+        error: 'Employee ID and password are required',
       });
       return;
     }
 
-    // Find user by mobile number
+    // Find user by employee_id
     const user = await prisma.user.findUnique({
-      where: { mobile_number },
+      where: { employee_id },
       include: { team: true },
     });
 
     if (!user) {
-      logger.auth('failed_login', undefined, { reason: 'user_not_found', mobile_number });
+      logger.auth('failed_login', undefined, { reason: 'user_not_found', employee_id });
       res.status(401).json({
         success: false,
-        error: "You don't have an account. Please sign up.",
+        error: "Invalid Employee ID or password.",
       });
       return;
     }
@@ -59,7 +59,7 @@ export async function login(req: Request, res: Response): Promise<void> {
       logger.auth('failed_login', user.id, { reason: 'invalid_password' });
       res.status(401).json({
         success: false,
-        error: 'Incorrect password. Please try again.',
+        error: 'Invalid Employee ID or password.',
       });
       return;
     }
@@ -89,11 +89,6 @@ export async function login(req: Request, res: Response): Promise<void> {
         });
         return;
       }
-    } else {
-      // Optional: Enforce device_id presence for mobile app users
-      // For now, we allow login without device_id (e.g. web/admin) but log a warning?
-      // Or just ignore if not provided (e.g. initial rollout)
-      // POSTGRES_SQL users can login from any device
     }
 
     // Record login history
@@ -109,7 +104,7 @@ export async function login(req: Request, res: Response): Promise<void> {
     // Generate JWT token
     const token = generateToken({
       userId: user.id,
-      mobile_number: user.mobile_number,
+      employee_id: user.employee_id,
       role: user.role as any,
     });
 
@@ -143,10 +138,14 @@ export async function login(req: Request, res: Response): Promise<void> {
       success: true,
       data: {
         token,
+        require_password_change: user.must_change_password, // FLAG for frontend
         user: {
           id: user.id,
+          employee_id: user.employee_id,
           mobile_number: user.mobile_number,
           full_name: user.full_name,
+          dob: user.dob,
+          gender: user.gender,
           email: user.email,
           role: user.role,
           team_id: user.team_id,
@@ -164,102 +163,9 @@ export async function login(req: Request, res: Response): Promise<void> {
   }
 }
 
-/**
- * POST /api/auth/signup
- * Self-registration for new employees
- */
-export async function signup(req: Request, res: Response): Promise<void> {
-  try {
-    const { mobile_number, password, full_name } = req.body;
 
-    // Validate required fields
-    if (!mobile_number || !password || !full_name) {
-      res.status(400).json({
-        success: false,
-        error: 'Mobile number, password, and full name are required',
-      });
-      return;
-    }
+// signup removed
 
-    // Validate password strength
-    if (password.length < 6) {
-      res.status(400).json({
-        success: false,
-        error: 'Password must be at least 6 characters',
-      });
-      return;
-    }
-
-    // Check if mobile number already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { mobile_number },
-    });
-
-    if (existingUser) {
-      res.status(409).json({
-        success: false,
-        error: 'Mobile number already registered',
-      });
-      return;
-    }
-
-    // Hash password with bcrypt (10 rounds)
-    const salt = await bcrypt.genSalt(10);
-    const password_hash = await bcrypt.hash(password, salt);
-
-    // Create new user as EMPLOYEE
-    const newUser = await prisma.user.create({
-      data: {
-        mobile_number,
-        password_hash,
-        full_name,
-        role: 'EMPLOYEE',
-        device_id: req.body.device_id || null, // Bind immediately on signup
-      },
-    });
-
-    // Generate token for immediate login
-    const token = generateToken({
-      userId: newUser.id,
-      mobile_number: newUser.mobile_number,
-      role: newUser.role as any,
-    });
-
-    logger.auth('signup', newUser.id, { role: newUser.role });
-
-    // NOTIFICATIONS
-    // Notify Admins about new signup
-    await notifyUsersByRole(
-      'ADMIN',
-      NotificationType.USER_LOGIN, // Or add NEW_USER_SIGNUP type
-      'New User Signup',
-      `${newUser.full_name} signed up`,
-      { userId: newUser.id }
-    );
-
-    res.status(201).json({
-      success: true,
-      data: {
-        token,
-        user: {
-          id: newUser.id,
-          mobile_number: newUser.mobile_number,
-          full_name: newUser.full_name,
-          email: newUser.email,
-          role: newUser.role,
-          team_id: newUser.team_id,
-        },
-      },
-    });
-
-  } catch (error) {
-    logger.error('Signup error', { error: (error as Error).message });
-    res.status(500).json({
-      success: false,
-      error: 'Signup failed. Please try again.',
-    });
-  }
-}
 
 /**
  * POST /api/auth/register
@@ -268,13 +174,13 @@ export async function signup(req: Request, res: Response): Promise<void> {
  */
 export async function register(req: Request, res: Response): Promise<void> {
   try {
-    const { mobile_number, password, full_name, role, team_id } = req.body;
+    const { employee_id, mobile_number, password, full_name, role, team_id, dob, gender } = req.body;
 
     // Validate required fields
-    if (!mobile_number || !password || !full_name) {
+    if (!employee_id || !password || !full_name) {
       res.status(400).json({
         success: false,
-        error: 'Mobile number, password, and full name are required',
+        error: 'Employee ID, password, and full name are required',
       });
       return;
     }
@@ -292,17 +198,31 @@ export async function register(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    // Check if mobile number already exists
+    // Check if employee_id already exists
     const existingUser = await prisma.user.findUnique({
-      where: { mobile_number },
+      where: { employee_id },
     });
 
     if (existingUser) {
       res.status(409).json({
         success: false,
-        error: 'Mobile number already registered',
+        error: 'Employee ID already registered',
       });
       return;
+    }
+
+    // Check mobile if provided
+    if (mobile_number) {
+      const existingMobile = await prisma.user.findUnique({
+        where: { mobile_number },
+      });
+      if (existingMobile) {
+        res.status(409).json({
+          success: false,
+          error: 'Mobile number already registered to another user',
+        });
+        return;
+      }
     }
 
     // Hash password with bcrypt (10 rounds)
@@ -312,11 +232,15 @@ export async function register(req: Request, res: Response): Promise<void> {
     // Create new user
     const newUser = await prisma.user.create({
       data: {
-        mobile_number,
+        employee_id,
+        mobile_number: mobile_number || null,
         password_hash,
         full_name,
         role: userRole,
         team_id: team_id || null,
+        must_change_password: true, // Force password change
+        dob: dob ? new Date(dob) : null,
+        gender: gender || null,
       },
     });
 
@@ -325,27 +249,20 @@ export async function register(req: Request, res: Response): Promise<void> {
       createdBy: req.user?.userId || 'admin'
     });
 
-    // NOTIFICATIONS
-    // Notify Admins about new registration
-    await notifyUsersByRole(
-      'ADMIN',
-      NotificationType.USER_LOGIN, // Using USER_LOGIN for now, or create a specific type
-      'New User Registration',
-      `${newUser.full_name} was registered by Admin`,
-      { userId: newUser.id }
-    );
-
     res.status(201).json({
       success: true,
       data: {
         user: {
           id: newUser.id,
+          employee_id: newUser.employee_id,
           mobile_number: newUser.mobile_number,
           full_name: newUser.full_name,
           email: newUser.email,
           role: newUser.role,
           team_id: newUser.team_id,
           created_at: newUser.created_at,
+          dob: newUser.dob,
+          gender: newUser.gender,
         },
       },
     });
@@ -357,6 +274,73 @@ export async function register(req: Request, res: Response): Promise<void> {
     });
   }
 }
+
+/**
+ * POST /api/auth/change-password
+ * Change password for authenticated user
+ */
+export async function changePassword(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user?.userId;
+    const { old_password, new_password } = req.body;
+
+    if (!userId) {
+      res.status(401).json({ success: false, error: 'Unauthorized' });
+      return;
+    }
+
+    if (!new_password || new_password.length < 6) {
+      res.status(400).json({
+        success: false,
+        error: 'New password must be at least 6 characters',
+      });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      res.status(404).json({ success: false, error: 'User not found' });
+      return;
+    }
+
+    // Check old password (if provided) or if user is must_change_password we might skip?
+    // Better security: always check old password if user is logged in
+    if (old_password) {
+      const isValid = await bcrypt.compare(old_password, user.password_hash);
+      if (!isValid) {
+        res.status(400).json({ success: false, error: 'Incorrect old password' });
+        return;
+      }
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    const password_hash = await bcrypt.hash(new_password, salt);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        password_hash,
+        must_change_password: false,
+      },
+    });
+
+    logger.auth('change_password', userId, { role: user.role as any });
+
+    res.json({
+      success: true,
+      message: 'Password changed successfully',
+    });
+
+  } catch (error) {
+    logger.error('Change password error', { error: (error as Error).message });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to change password',
+    });
+  }
+}
+
 
 /**
  * GET /api/auth/me
@@ -386,6 +370,8 @@ export async function getProfile(req: Request, res: Response): Promise<void> {
           id: user.id,
           mobile_number: user.mobile_number,
           full_name: user.full_name,
+          dob: user.dob,
+          gender: user.gender,
           email: user.email,
           role: user.role,
           team_id: user.team_id,
@@ -457,7 +443,7 @@ export async function getLoginHistory(req: Request, res: Response): Promise<void
 export async function updateProfile(req: Request, res: Response): Promise<void> {
   try {
     const userId = req.user?.userId;
-    const { email } = req.body;
+    const { email, dob, gender } = req.body;
 
     if (!userId) {
       res.status(401).json({ success: false, error: 'Unauthorized' });
@@ -474,7 +460,11 @@ export async function updateProfile(req: Request, res: Response): Promise<void> 
 
     const updatedUser = await prisma.user.update({
       where: { id: userId },
-      data: { email: email },
+      data: {
+        email: email,
+        dob: dob ? new Date(dob) : undefined,
+        gender: gender,
+      },
       include: { team: true },
     });
 
@@ -490,6 +480,8 @@ export async function updateProfile(req: Request, res: Response): Promise<void> 
           team_id: updatedUser.team_id,
           team_name: updatedUser.team?.name || null,
           created_at: updatedUser.created_at,
+          dob: updatedUser.dob,
+          gender: updatedUser.gender,
         },
       },
     });
@@ -502,4 +494,4 @@ export async function updateProfile(req: Request, res: Response): Promise<void> 
   }
 }
 
-export default { login, signup, register, getProfile, getLoginHistory, updateProfile };
+export default { login, register, getProfile, getLoginHistory, updateProfile, changePassword };

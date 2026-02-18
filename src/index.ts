@@ -15,6 +15,7 @@ import routes from './routes';
 
 
 import { checkUpdate, downloadApp } from './controllers/updateController';
+import { BirthdayService } from './services/birthdayService';
 
 
 // Validate environment variables early
@@ -161,6 +162,9 @@ async function startServer(): Promise<void> {
       throw new Error('Failed to connect to database');
     }
     logger.info('Database connection verified');
+
+    // Initialize Birthday Service
+    BirthdayService.init();
 
     // Start HTTP server (with Socket.IO)
     httpServer.listen(config.PORT, '0.0.0.0', () => {

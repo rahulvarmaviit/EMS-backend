@@ -481,7 +481,7 @@ export async function getTeamAttendance(req: Request, res: Response): Promise<vo
     res.json({
       success: true,
       data: {
-        attendance: attendance.map((a: { id: string; date: Date; check_in_time: Date; check_out_time: Date | null; status: string; user: { id: string; full_name: string; mobile_number: string | null } }) => ({
+        attendance: attendance.map((a: any) => ({
           id: a.id,
           date: a.date.toISOString().split('T')[0],
           check_in_time: a.check_in_time,

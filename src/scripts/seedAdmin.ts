@@ -1,5 +1,5 @@
 // Seed Admin Script
-// Purpose: Create initial admin user with proper password hash
+// Purpose: Create initial admin user with proper password hash (Updated)
 // Run: npx tsx src/scripts/seedAdmin.ts
 
 import bcrypt from 'bcryptjs';

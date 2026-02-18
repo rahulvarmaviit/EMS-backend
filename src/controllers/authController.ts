@@ -107,7 +107,7 @@ export async function login(req: Request, res: Response): Promise<void> {
       employee_id: user.employee_id,
       mobile_number: user.mobile_number || '',
       role: user.role as any,
-    });
+    } as any);
 
     logger.auth('login', user.id, { role: user.role, device_name, ip_address });
 

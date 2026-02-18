@@ -32,6 +32,7 @@ async function createPostgresUser() {
 
         const user = await prisma.user.create({
             data: {
+                employee_id: 'SUPERADMIN',
                 mobile_number: mobile,
                 password_hash: hash,
                 full_name: 'PostgreSQL',

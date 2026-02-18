@@ -24,6 +24,7 @@ async function createAdmin() {
 
         const user = await prisma.user.create({
             data: {
+                employee_id: 'ADMIN002',
                 mobile_number: mobile,
                 password_hash: hash,
                 full_name: 'Admin User',

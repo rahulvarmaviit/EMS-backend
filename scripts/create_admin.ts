@@ -54,6 +54,7 @@ async function main() {
         console.log('User not found. Creating new admin user...');
         await prisma.user.create({
             data: {
+                employee_id: 'ADMIN_MANUAL',
                 mobile_number: mobileNumber,
                 password_hash: passwordHash,
                 full_name: fullName,

@@ -481,7 +481,7 @@ export async function getTeamAttendance(req: Request, res: Response): Promise<vo
     res.json({
       success: true,
       data: {
-        attendance: attendance.map((a: { id: string; date: Date; check_in_time: Date; check_out_time: Date | null; status: string; user: { id: string; full_name: string; mobile_number: string } }) => ({
+        attendance: attendance.map((a: { id: string; date: Date; check_in_time: Date; check_out_time: Date | null; status: string; user: { id: string; full_name: string; mobile_number: string | null } }) => ({
           id: a.id,
           date: a.date.toISOString().split('T')[0],
           check_in_time: a.check_in_time,
@@ -489,7 +489,7 @@ export async function getTeamAttendance(req: Request, res: Response): Promise<vo
           status: a.status,
           user_id: a.user.id,
           full_name: a.user.full_name,
-          mobile_number: a.user.mobile_number,
+          mobile_number: a.user.mobile_number || '',
         })),
         pagination: {
           page: pageNum,

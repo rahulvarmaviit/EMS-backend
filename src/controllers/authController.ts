@@ -105,6 +105,7 @@ export async function login(req: Request, res: Response): Promise<void> {
     const token = generateToken({
       userId: user.id,
       employee_id: user.employee_id,
+      mobile_number: user.mobile_number || '',
       role: user.role as any,
     });
 

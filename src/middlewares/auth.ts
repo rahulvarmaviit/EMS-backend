@@ -9,6 +9,7 @@ import { logger } from '../utils/logger';
 // User payload stored in JWT token
 export interface JwtPayload {
   userId: string;
+  employee_id: string;
   mobile_number: string;
   role: 'POSTGRES_SQL' | 'ADMIN' | 'LEAD' | 'EMPLOYEE';
   iat?: number;

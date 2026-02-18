@@ -1,6 +1,6 @@
 {
   "name": "ems-backend",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Geo-Attendance System Backend",
   "main": "dist/src/index.js",
   "scripts": {

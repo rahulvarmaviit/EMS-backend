@@ -41,7 +41,10 @@ export async function checkIn(req: Request, res: Response): Promise<void> {
     const existingAttendance = await prisma.attendance.findFirst({
       where: {
         user_id: userId,
-        date: today,
+        date: {
+          gte: new Date(new Date().setHours(0, 0, 0, 0)),
+          lte: new Date(new Date().setHours(23, 59, 59, 999)),
+        }
       },
     });
 
@@ -217,7 +220,10 @@ export async function checkOut(req: Request, res: Response): Promise<void> {
     const existingAttendance = await prisma.attendance.findFirst({
       where: {
         user_id: userId,
-        date: today,
+        date: {
+          gte: new Date(new Date().setHours(0, 0, 0, 0)),
+          lte: new Date(new Date().setHours(23, 59, 59, 999)),
+        }
       },
     });
 
@@ -627,7 +633,10 @@ export async function startBreak(req: Request, res: Response): Promise<void> {
     const attendance = await prisma.attendance.findFirst({
       where: {
         user_id: userId,
-        date: today,
+        date: {
+          gte: new Date(new Date().setHours(0, 0, 0, 0)),
+          lte: new Date(new Date().setHours(23, 59, 59, 999)),
+        }
       },
       include: { breaks: true },
     });
@@ -716,7 +725,10 @@ export async function endBreak(req: Request, res: Response): Promise<void> {
     const attendance = await prisma.attendance.findFirst({
       where: {
         user_id: userId,
-        date: today,
+        date: {
+          gte: new Date(new Date().setHours(0, 0, 0, 0)),
+          lte: new Date(new Date().setHours(23, 59, 59, 999)),
+        }
       },
       include: { breaks: true },
     });

@@ -6,7 +6,7 @@ import { prisma } from '../config/database';
 import { isWithinGeofence, validateCoordinates, GeoLocation } from '../services/geoService';
 import { logger } from '../utils/logger';
 import config from '../config/env';
-import { notifyUsersByRole, notifyTeamLead } from '../services/notificationService';
+import { notifyUsersByRole, notifyTeamLead, createNotification } from '../services/notificationService';
 import { NotificationType, BreakType } from '@prisma/client';
 
 // Helper to get today's date at UTC midnight (for DATE column compatibility)
@@ -746,6 +746,43 @@ export async function endBreak(req: Request, res: Response): Promise<void> {
     });
 
     logger.info('Break ended', { userId, breakId: activeBreak.id, type: activeBreak.type });
+
+    // Fetch user details for notification
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { full_name: true, team_id: true }
+    });
+
+    if (user && userId) {
+      const typeStr = activeBreak.type.charAt(0) + activeBreak.type.slice(1).toLowerCase();
+
+      // Notify employee
+      await createNotification(
+        userId,
+        'BREAK_COMPLETED' as NotificationType,
+        'Break Ended',
+        `Your ${typeStr} break has ended successfully.`
+      );
+
+      // Notify management (Team Lead, or fallback to Admin if no team)
+      if (user.team_id) {
+        await notifyTeamLead(
+          user.team_id,
+          'BREAK_COMPLETED' as NotificationType,
+          'Team Member Break Ended',
+          `${user.full_name} has returned from their ${typeStr} break.`,
+          { userId }
+        );
+      } else {
+        await notifyUsersByRole(
+          'ADMIN',
+          'BREAK_COMPLETED' as NotificationType,
+          'Employee Break Ended',
+          `${user.full_name} has returned from their ${typeStr} break.`,
+          { userId }
+        );
+      }
+    }
 
     res.json({
       success: true,

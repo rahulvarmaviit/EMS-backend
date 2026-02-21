@@ -218,6 +218,7 @@ enum NotificationType {
   ANNOUNCEMENT
   EVENT_CREATED
   BIRTHDAY
+  BREAK_COMPLETED
 }
 
 model Announcement {

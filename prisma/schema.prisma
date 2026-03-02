@@ -28,7 +28,7 @@ model User {
   login_history LoginHistory[]
   documents     Document[]
   notifications Notification[]
-  managed_team  Team?          @relation("TeamLead")
+  managed_teams Team[]         @relation("TeamLead")
   team          Team?          @relation("TeamMembers", fields: [team_id], references: [id])
   device_id     String?        // For Device Binding
   approved_leaves LeaveRequest[] @relation("ApprovedLeaves")
@@ -71,7 +71,7 @@ model Team {
   id         String   @id @default(uuid())
   name       String   @unique
   created_at DateTime @default(now())
-  lead_id    String?  @unique
+  lead_id    String?
   lead       User?    @relation("TeamLead", fields: [lead_id], references: [id])
   members    User[]   @relation("TeamMembers")
 

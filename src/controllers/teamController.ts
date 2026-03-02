@@ -277,12 +277,17 @@ export async function updateTeam(req: Request, res: Response): Promise<void> {
 
     // Update user roles if lead changed
     if (lead_id !== undefined && lead_id !== oldLeadId) {
-      // Demote old lead to EMPLOYEE
+      // Demote old lead to EMPLOYEE if they don't lead any other teams
       if (oldLeadId) {
-        await prisma.user.update({
-          where: { id: oldLeadId },
-          data: { role: 'EMPLOYEE' },
+        const stillLeadsTeams = await prisma.team.findFirst({
+          where: { lead_id: oldLeadId }
         });
+        if (!stillLeadsTeams) {
+          await prisma.user.update({
+            where: { id: oldLeadId },
+            data: { role: 'EMPLOYEE' },
+          });
+        }
       }
 
       // Promote new lead

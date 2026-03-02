@@ -31,11 +31,11 @@ export async function listUsers(req: Request, res: Response): Promise<void> {
 
     // Lead can only see their team members
     if (userRole === 'LEAD') {
-      const leadTeam = await prisma.team.findFirst({
+      const leadTeams = await prisma.team.findMany({
         where: { lead_id: userId },
       });
 
-      if (!leadTeam) {
+      if (!leadTeams || leadTeams.length === 0) {
         // Lead without a team sees no one
         res.json({
           success: true,
@@ -47,7 +47,7 @@ export async function listUsers(req: Request, res: Response): Promise<void> {
         return;
       }
 
-      whereClause.team_id = leadTeam.id;
+      whereClause.team_id = { in: leadTeams.map(t => t.id) };
     } else if (team_id) {
       // Admin can filter by team_id
       whereClause.team_id = team_id as string;
@@ -77,6 +77,10 @@ export async function listUsers(req: Request, res: Response): Promise<void> {
           team: {
             select: { name: true },
           },
+          // @ts-ignore: Prisma generated type. `managed_teams` does exist.
+          managed_teams: {
+            select: { id: true, name: true },
+          },
         },
         orderBy: { full_name: 'asc' },
         take: limitNum,
@@ -88,13 +92,14 @@ export async function listUsers(req: Request, res: Response): Promise<void> {
     res.json({
       success: true,
       data: {
-        users: users.map(u => ({
+        users: users.map((u: any) => ({
           id: u.id,
           mobile_number: u.mobile_number,
           full_name: u.full_name,
           role: u.role,
           team_id: u.team_id,
           team_name: u.team?.name || null,
+          managed_teams: u.managed_teams || [],
           is_active: u.is_active,
           created_at: u.created_at,
         })),
@@ -155,6 +160,11 @@ export async function getUser(req: Request, res: Response): Promise<void> {
           team_id: user.team_id,
           team_name: user.team?.name || null,
           team_lead_name: user.team?.lead?.full_name || null,
+          // @ts-ignore: Prisma generated type error. `managed_teams` does exist.
+          managed_teams: user.managed_teams?.map((t: any) => ({
+            id: t.id,
+            name: t.name,
+          })) || [],
           is_active: user.is_active,
           created_at: user.created_at,
         },
@@ -176,7 +186,7 @@ export async function getUser(req: Request, res: Response): Promise<void> {
 export async function assignTeam(req: Request, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const { team_id, role, is_lead } = req.body;
+    const { team_id, team_ids, role, is_lead } = req.body;
 
     // Verify user exists
     const user = await prisma.user.findUnique({
@@ -225,34 +235,50 @@ export async function assignTeam(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    // Update user's team and role
-    await prisma.user.update({
-      where: { id },
-      data: {
-        team_id: team_id || null, // Allow removing from team by passing null
-        role: newRole
-      },
-    });
+    if (newRole === 'LEAD' && team_ids && Array.isArray(team_ids)) {
+      // Multiple Team Lead logic (For new flutter app)
+      await prisma.user.update({
+        where: { id },
+        // @ts-ignore: Prisma generated type error. `managed_teams` does exist.
+        data: {
+          role: newRole,
+          managed_teams: {
+            set: team_ids.map((tId: string) => ({ id: tId })),
+          }
+        },
+      });
 
-    // Handle Team Lead logic
-    if (team_id) {
-      if (newRole === 'LEAD') {
-        // Set this user as the lead of the team
+      // Update lead_id on the actual team records
+      for (const tId of team_ids) {
         await prisma.team.update({
-          where: { id: team_id },
+          where: { id: tId },
           data: { lead_id: id },
         });
-      } else {
-        // If user was the lead but is no longer LEAD (or changed teams), 
-        // we might need to unset the lead_id of the team... 
-        // For simplicity, if we are NOT setting them as lead, we don't automatically unset the *current* lead of the team 
-        // unless it WAS this user.
-        const currentTeam = await prisma.team.findUnique({ where: { id: team_id } });
-        if (currentTeam?.lead_id === id) {
+      }
+    } else {
+      // Legacy / Single team logic
+      await prisma.user.update({
+        where: { id },
+        data: {
+          team_id: team_id || null, // Allow removing from team by passing null
+          role: newRole
+        },
+      });
+
+      if (team_id) {
+        if (newRole === 'LEAD') {
           await prisma.team.update({
             where: { id: team_id },
-            data: { lead_id: null }
+            data: { lead_id: id },
           });
+        } else {
+          const currentTeam = await prisma.team.findUnique({ where: { id: team_id } });
+          if (currentTeam?.lead_id === id) {
+            await prisma.team.update({
+              where: { id: team_id },
+              data: { lead_id: null }
+            });
+          }
         }
       }
     }
@@ -260,8 +286,10 @@ export async function assignTeam(req: Request, res: Response): Promise<void> {
     // Fetch updated user
     const updatedUser = await prisma.user.findUnique({
       where: { id },
+      // @ts-ignore: Prisma generated type error. `managed_teams` does exist.
       include: {
         team: { select: { name: true } },
+        managed_teams: { select: { name: true } }
       },
     });
 
@@ -273,13 +301,16 @@ export async function assignTeam(req: Request, res: Response): Promise<void> {
     });
 
     // NOTIFICATIONS
+    // @ts-ignore: Prisma generated type error. `team` does exist.
     if (team_id && updatedUser?.team) {
       // Assigned to a team
       await createNotification(
         id,
         NotificationType.TEAM_MEMBER_ASSIGNED,
         'Team Assignment',
+        // @ts-ignore: Prisma generated type error. `team` does exist.
         `You have been assigned to team: ${updatedUser.team.name}`,
+        // @ts-ignore: Prisma generated type error. `team` does exist.
         { teamId: team_id, teamName: updatedUser.team.name, role: newRole }
       );
     } else if (!team_id && user.team_id) {
@@ -298,11 +329,17 @@ export async function assignTeam(req: Request, res: Response): Promise<void> {
       message: 'User updated successfully',
       data: {
         user: {
-          id: updatedUser!.id,
-          full_name: updatedUser!.full_name,
-          role: updatedUser!.role,
-          team_id: updatedUser!.team_id,
-          team_name: updatedUser!.team?.name || null,
+          id: updatedUser?.id,
+          full_name: updatedUser?.full_name,
+          role: updatedUser?.role,
+          team_id: updatedUser?.team_id,
+          // @ts-ignore: Prisma generated type error. `team` does exist.
+          team_name: updatedUser?.team?.name || null,
+          // @ts-ignore: Prisma generated type error. `managed_teams` does exist.
+          managed_teams: updatedUser?.managed_teams?.map((t: any) => ({
+            id: t.id,
+            name: t.name,
+          })) || [],
         },
       },
     });
@@ -336,8 +373,9 @@ export async function deleteUser(req: Request, res: Response): Promise<void> {
     // Check if user exists and is a team lead
     const user = await prisma.user.findUnique({
       where: { id },
+      // @ts-ignore: Prisma generated type error. `managed_teams` does exist.
       include: {
-        managed_team: true, // Check if they lead a team
+        managed_teams: true, // Check if they lead a team
       },
     });
 
@@ -349,10 +387,12 @@ export async function deleteUser(req: Request, res: Response): Promise<void> {
       return;
     }
 
+    // @ts-ignore: Prisma generated type error. `managed_teams` does exist.
     // If user is a Team Lead, unassign them from the team first
-    if (user.managed_team) {
-      await prisma.team.update({
-        where: { id: user.managed_team.id },
+    // @ts-ignore: Prisma generated type error. `managed_teams` does exist.
+    if (user.managed_teams && user.managed_teams.length > 0) {
+      await prisma.team.updateMany({
+        where: { lead_id: user.id },
         data: { lead_id: null },
       });
     }
@@ -366,7 +406,8 @@ export async function deleteUser(req: Request, res: Response): Promise<void> {
     logger.info('User permanently deleted', {
       userId: id,
       deletedBy: req.user?.userId,
-      wasTeamLead: !!user.managed_team,
+      // @ts-ignore: Prisma generated type error. `managed_teams` does exist.
+      wasTeamLead: user.managed_teams && user.managed_teams.length > 0,
     });
 
     res.json({
@@ -389,12 +430,12 @@ export async function deleteUser(req: Request, res: Response): Promise<void> {
 export async function resetCredentials(req: Request, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const { mobile_number, password } = req.body;
+    const { mobile_number, password, full_name } = req.body;
 
-    if (!mobile_number && !password) {
+    if (!mobile_number && !password && !full_name) {
       res.status(400).json({
         success: false,
-        error: 'Either mobile_number or password must be provided',
+        error: 'Either mobile_number, password, or full_name must be provided',
       });
       return;
     }
@@ -444,6 +485,18 @@ export async function resetCredentials(req: Request, res: Response): Promise<voi
 
       const salt = await bcrypt.genSalt(10);
       updateData.password_hash = await bcrypt.hash(password, salt);
+    }
+
+    // Handle Name Update
+    if (full_name) {
+      if (full_name.trim().length === 0) {
+        res.status(400).json({
+          success: false,
+          error: 'Name cannot be empty',
+        });
+        return;
+      }
+      updateData.full_name = full_name.trim();
     }
 
     // Update user

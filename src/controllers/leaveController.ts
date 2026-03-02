@@ -558,10 +558,10 @@ export async function revokeLeave(req: Request, res: Response): Promise<void> {
             return;
         }
 
-        if (leave.status !== 'APPROVED') {
+        if (leave.status !== 'APPROVED' && leave.status !== 'REJECTED') {
             res.status(400).json({
                 success: false,
-                error: 'Only approved leaves can be revoked',
+                error: 'Only approved or rejected leaves can be revoked',
             });
             return;
         }
@@ -609,7 +609,7 @@ export async function revokeLeave(req: Request, res: Response): Promise<void> {
             leave.user_id,
             NotificationType.LEAVE_REVOKED,
             'Leave Revoked',
-            `Your approved leave has been revoked. Reason: ${reason.trim()}`,
+            `Your leave request has been revoked. Reason: ${reason.trim()}`,
             { leaveId: leave.id, reason: reason.trim() }
         );
 

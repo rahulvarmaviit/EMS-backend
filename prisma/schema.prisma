@@ -35,6 +35,8 @@ model User {
   rejected_leaves LeaveRequest[] @relation("RejectedLeaves")
   revoked_leaves  LeaveRequest[] @relation("RevokedLeaves")
   game_scores     GameScore[]
+  assigned_tasks  TaskAssignment[] @relation("AssignedTasks")
+  created_tasks   TaskAssignment[] @relation("CreatedTasks")
 
   @@map("users")
 }
@@ -219,6 +221,8 @@ enum NotificationType {
   EVENT_CREATED
   BIRTHDAY
   BREAK_COMPLETED
+  TASK_ASSIGNED
+  TASK_UPDATED
 }
 
 model Announcement {
@@ -260,4 +264,62 @@ model Quote {
   updated_at  DateTime @updatedAt
 
   @@map("quotes")
+}
+
+enum TaskPriority {
+  P1  // Critical - Red
+  P2  // High - Orange
+  P3  // Medium - Green
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  BLOCKED
+  COMPLETED
+}
+
+model TaskAssignment {
+  id             String         @id @default(uuid())
+  title          String         @db.VarChar(100)
+  description    String
+  priority       TaskPriority   @default(P3)
+  status         TaskStatus     @default(PENDING)
+  start_date     DateTime
+  end_date       DateTime
+  assigned_to_id String
+  assigned_to    User           @relation("AssignedTasks", fields: [assigned_to_id], references: [id], onDelete: Cascade)
+  assigned_by_id String
+  assigned_by    User           @relation("CreatedTasks", fields: [assigned_by_id], references: [id], onDelete: Cascade)
+  documents      TaskDocument[]
+  created_at     DateTime       @default(now())
+  updated_at     DateTime       @updatedAt
+
+  @@index([assigned_to_id])
+  @@index([assigned_by_id])
+  @@map("task_assignments")
+}
+
+model TaskDocument {
+  id               String          @id @default(uuid())
+  file_name        String
+  file_path        String
+  file_size        Int
+  mime_type        String
+  task_id          String
+  task             TaskAssignment  @relation(fields: [task_id], references: [id], onDelete: Cascade)
+  uploaded_at      DateTime        @default(now())
+
+  @@index([task_id])
+  @@map("task_documents")
+}
+
+model Project {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@map("projects")
 }

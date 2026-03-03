@@ -13,6 +13,8 @@ import announcementRoutes from './announcementRoutes';
 import gameRoutes from './gameRoutes';
 import documentRoutes from './documentRoutes';
 import quoteRoutes from './quoteRoutes';
+import taskRoutes from './taskRoutes';
+import projectRoutes from './projectRoutes';
 
 const router = Router();
 
@@ -27,6 +29,8 @@ router.use('/notifications', notificationRoutes);
 router.use('/games', gameRoutes);
 router.use('/documents', documentRoutes);
 router.use('/quotes', quoteRoutes);
+router.use('/tasks', taskRoutes);
+router.use('/projects', projectRoutes);
 router.use('/', announcementRoutes); // Mount at root so endpoints are /api/announcements etc.
 // Actually, looking at others: /users, /teams.
 // I'll mount at root level or specific?

@@ -9,7 +9,7 @@ import { logger } from '../utils/logger';
 // Get current user's notifications (paginated)
 async function getNotifications(req: Request, res: Response): Promise<void> {
     try {
-        const userId = (req as any).user?.id;
+        const userId = (req as any).user?.userId;
         if (!userId) {
             res.status(401).json({ error: 'Unauthorized' });
             return;
@@ -61,7 +61,7 @@ async function getNotifications(req: Request, res: Response): Promise<void> {
 // Get unread notification count
 async function getUnreadCount(req: Request, res: Response): Promise<void> {
     try {
-        const userId = (req as any).user?.id;
+        const userId = (req as any).user?.userId;
         if (!userId) {
             res.status(401).json({ error: 'Unauthorized' });
             return;
@@ -82,7 +82,7 @@ async function getUnreadCount(req: Request, res: Response): Promise<void> {
 // Mark a notification as read
 async function markAsRead(req: Request, res: Response): Promise<void> {
     try {
-        const userId = (req as any).user?.id;
+        const userId = (req as any).user?.userId;
         const { id } = req.params;
 
         if (!userId) {
@@ -116,7 +116,7 @@ async function markAsRead(req: Request, res: Response): Promise<void> {
 // Mark all notifications as read
 async function markAllAsRead(req: Request, res: Response): Promise<void> {
     try {
-        const userId = (req as any).user?.id;
+        const userId = (req as any).user?.userId;
         if (!userId) {
             res.status(401).json({ error: 'Unauthorized' });
             return;
@@ -138,7 +138,7 @@ async function markAllAsRead(req: Request, res: Response): Promise<void> {
 // Delete a notification
 async function deleteNotification(req: Request, res: Response): Promise<void> {
     try {
-        const userId = (req as any).user?.id;
+        const userId = (req as any).user?.userId;
         const { id } = req.params;
 
         if (!userId) {
@@ -169,7 +169,7 @@ async function deleteNotification(req: Request, res: Response): Promise<void> {
 // Register FCM token for push notifications
 async function registerFcmToken(req: Request, res: Response): Promise<void> {
     try {
-        const userId = (req as any).user?.id;
+        const userId = (req as any).user?.userId;
         const { fcm_token } = req.body;
 
         if (!userId) {

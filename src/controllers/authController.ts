@@ -444,7 +444,7 @@ export async function getLoginHistory(req: Request, res: Response): Promise<void
 export async function updateProfile(req: Request, res: Response): Promise<void> {
   try {
     const userId = req.user?.userId;
-    const { email, dob, gender } = req.body;
+    const { email, dob, gender, mobile_number } = req.body;
 
     if (!userId) {
       res.status(401).json({ success: false, error: 'Unauthorized' });
@@ -459,12 +459,33 @@ export async function updateProfile(req: Request, res: Response): Promise<void> 
       return;
     }
 
+    if (mobile_number) {
+      // Basic mobile validation: optional '+' followed by digits, 7-15 chars
+      if (!/^\+?\d{7,15}$/.test(mobile_number)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid mobile number format',
+        });
+        return;
+      }
+      // Check uniqueness
+      const existing = await prisma.user.findUnique({ where: { mobile_number } });
+      if (existing && existing.id !== userId) {
+        res.status(409).json({
+          success: false,
+          error: 'Mobile number already registered to another user',
+        });
+        return;
+      }
+    }
+
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
         email: email,
         dob: dob ? new Date(dob) : undefined,
         gender: gender,
+        ...(mobile_number !== undefined ? { mobile_number } : {}),
       },
       include: { team: true },
     });

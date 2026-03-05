@@ -111,8 +111,9 @@ export async function checkIn(req: Request, res: Response): Promise<void> {
 
     // Determine status based on office timing rules
     const now = new Date();
-    const checkInHour = now.getHours();
-    const checkInMinutes = now.getMinutes();
+    const indiaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    const checkInHour = indiaTime.getHours();
+    const checkInMinutes = indiaTime.getMinutes();
 
     // Office starts at OFFICE_START_HOUR (default 10 AM)
     // LATE after OFFICE_START_HOUR + LATE_THRESHOLD_MINUTES (default 11 AM)
@@ -266,7 +267,8 @@ export async function checkOut(req: Request, res: Response): Promise<void> {
     const checkInTime = new Date(existingAttendance.check_in_time);
     const checkOutTime = new Date();
     const hoursWorked = (checkOutTime.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
-    const checkOutHour = checkOutTime.getHours();
+    const indiaTime = new Date(checkOutTime.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    const checkOutHour = indiaTime.getHours();
 
     let status = existingAttendance.status;
     // HALF_DAY if checking out before HALF_DAY_HOUR (default 12 PM)

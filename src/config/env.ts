@@ -22,7 +22,7 @@ export const config = {
   // Business rules
   OFFICE_START_HOUR: parseInt(process.env.OFFICE_START_HOUR || '10', 10), // Office starts at 10 AM
   OFFICE_END_HOUR: parseInt(process.env.OFFICE_END_HOUR || '18', 10), // Office ends at 6 PM
-  LATE_THRESHOLD_MINUTES: parseInt(process.env.LATE_THRESHOLD_MINUTES || '60', 10), // 60 min grace (LATE after 11 AM)
+  LATE_THRESHOLD_MINUTES: parseInt(process.env.LATE_THRESHOLD_MINUTES || '30', 10), // 30 min grace (LATE after 10:30 AM)
   HALF_DAY_HOUR: parseInt(process.env.HALF_DAY_HOUR || '14', 10), // HALF_DAY if check-in after 2 PM or check-out before 2 PM
 
   // Geofencing

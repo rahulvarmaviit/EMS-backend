@@ -57,10 +57,6 @@ export const getLeaderboard = async (req: Request, res: Response) => {
                     },
                 },
             },
-            orderBy: [
-                { score: 'desc' },
-                { time_taken: 'asc' },
-            ],
         });
 
         // Group by user and keep best score
@@ -69,12 +65,34 @@ export const getLeaderboard = async (req: Request, res: Response) => {
         scoresToday.forEach((entry: any) => {
             if (!bestScoresMap.has(entry.user_id)) {
                 bestScoresMap.set(entry.user_id, entry);
+            } else {
+                const existing = bestScoresMap.get(entry.user_id);
+                // For Memory Match, lower moves is better. For standard, higher score is better.
+                // Assuming sorting by highest score generally, and then lowest moves/time
+                if (entry.score > existing.score) {
+                    bestScoresMap.set(entry.user_id, entry);
+                } else if (entry.score === existing.score) {
+                    if (entry.moves !== null && existing.moves !== null && entry.moves < existing.moves) {
+                        bestScoresMap.set(entry.user_id, entry);
+                    } else if (entry.time_taken !== null && existing.time_taken !== null && entry.time_taken < existing.time_taken) {
+                        bestScoresMap.set(entry.user_id, entry);
+                    }
+                }
             }
-            // Since we sorted by score desc, the first one encountered is the best.
-            // If we wanted to be super safe we could compare, but orderBy handles it.
         });
 
-        const leaderboard = Array.from(bestScoresMap.values());
+        const leaderboard = Array.from(bestScoresMap.values()).sort((a: any, b: any) => {
+            if (b.score !== a.score) {
+                return b.score - a.score; // Highest score first
+            }
+            if (a.moves !== null && b.moves !== null && a.moves !== b.moves) {
+                return a.moves - b.moves; // Lowest moves first
+            }
+            if (a.time_taken !== null && b.time_taken !== null && a.time_taken !== b.time_taken) {
+                return a.time_taken - b.time_taken; // Lowest time first
+            }
+            return 0;
+        });
 
         // Format the response
         const formattedLeaderboard = leaderboard.map((entry: any, index: number) => ({

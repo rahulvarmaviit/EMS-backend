@@ -17,7 +17,7 @@ export const config = {
 
   // JWT settings (required - must be set via environment variable)
   JWT_SECRET: process.env.JWT_SECRET || '',
-  JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d', // 7 days for mobile-friendly sessions
+  JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '365d', // 1 year for mobile-friendly sessions
 
   // Business rules
   OFFICE_START_HOUR: parseInt(process.env.OFFICE_START_HOUR || '10', 10), // Office starts at 10 AM

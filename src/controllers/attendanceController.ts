@@ -22,7 +22,7 @@ function getUtcMidnight(): Date {
 export async function checkIn(req: Request, res: Response): Promise<void> {
   try {
     const userId = req.user?.userId;
-    const { latitude, longitude } = req.body;
+    const { latitude, longitude, isWeb, is_remote } = req.body;
     const userRole = req.user?.role;
 
     // Validate coordinates
@@ -83,14 +83,14 @@ export async function checkIn(req: Request, res: Response): Promise<void> {
 
     let matchingLocation = isWithinGeofence(latitude, longitude, geoLocations);
 
-    // DEBUG: Skip geofence check if enabled in config
-    if (config.SKIP_GEOFENCE && !matchingLocation) {
-      logger.info('Skipping geofence check (dev mode)', { userId });
+    // DEBUG: Skip geofence check if enabled in config or if user is on web OR is_remote is true
+    if ((config.SKIP_GEOFENCE || isWeb || is_remote) && !matchingLocation) {
+      logger.info('Skipping geofence check (dev/web/remote mode)', { userId });
       matchingLocation = geoLocations[0] || {
         id: 'debug-loc',
-        name: 'Debug Location (Geofence Disabled)',
-        latitude: 0,
-        longitude: 0,
+        name: is_remote ? 'Remote Work Check-in' : (isWeb ? 'Remote Web Check-in' : 'Debug Location (Geofence Disabled)'),
+        latitude: latitude,
+        longitude: longitude,
         radius_meters: 1000,
       };
     }
@@ -137,6 +137,7 @@ export async function checkIn(req: Request, res: Response): Promise<void> {
         check_in_lat: latitude,
         check_in_long: longitude,
         status,
+        is_remote: is_remote || false,
       },
     });
 
@@ -202,7 +203,7 @@ export async function checkIn(req: Request, res: Response): Promise<void> {
 export async function checkOut(req: Request, res: Response): Promise<void> {
   try {
     const userId = req.user?.userId;
-    const { latitude, longitude, work_done, project_name, meetings, todo_updates, notes } = req.body;
+    const { latitude, longitude, work_done, project_name, meetings, todo_updates, notes, isWeb } = req.body;
     const userRole = req.user?.role;
 
     // Validate coordinates
@@ -384,6 +385,7 @@ export async function getSelfAttendance(req: Request, res: Response): Promise<vo
           check_in_time: a.check_in_time,
           check_out_time: a.check_out_time,
           status: a.status,
+          is_remote: a.is_remote,
           work_done: a.work_done,
           project_name: a.project_name,
           meetings: a.meetings,
@@ -495,6 +497,7 @@ export async function getTeamAttendance(req: Request, res: Response): Promise<vo
           check_in_time: a.check_in_time,
           check_out_time: a.check_out_time,
           status: a.status,
+          is_remote: a.is_remote,
           user_id: a.user.id,
           full_name: a.user.full_name,
           mobile_number: a.user.mobile_number || '',
@@ -579,6 +582,7 @@ export async function getUserAttendance(req: Request, res: Response): Promise<vo
           check_in_time: a.check_in_time,
           check_out_time: a.check_out_time,
           status: a.status,
+          is_remote: a.is_remote,
           work_done: a.work_done,
           project_name: a.project_name,
           meetings: a.meetings,

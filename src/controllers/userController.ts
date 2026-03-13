@@ -94,6 +94,7 @@ export async function listUsers(req: Request, res: Response): Promise<void> {
       data: {
         users: users.map((u: any) => ({
           id: u.id,
+          employee_id: u.employee_id,
           mobile_number: u.mobile_number,
           full_name: u.full_name,
           role: u.role,
@@ -154,6 +155,7 @@ export async function getUser(req: Request, res: Response): Promise<void> {
       data: {
         user: {
           id: user.id,
+          employee_id: user.employee_id,
           mobile_number: user.mobile_number,
           full_name: user.full_name,
           role: user.role,
@@ -430,12 +432,12 @@ export async function deleteUser(req: Request, res: Response): Promise<void> {
 export async function resetCredentials(req: Request, res: Response): Promise<void> {
   try {
     const { id } = req.params;
-    const { mobile_number, password, full_name } = req.body;
+    const { mobile_number, password, full_name, employee_id } = req.body;
 
-    if (!mobile_number && !password && !full_name) {
+    if (!mobile_number && !password && !full_name && !employee_id) {
       res.status(400).json({
         success: false,
-        error: 'Either mobile_number, password, or full_name must be provided',
+        error: 'Either mobile_number, password, full_name, or employee_id must be provided',
       });
       return;
     }
@@ -471,6 +473,32 @@ export async function resetCredentials(req: Request, res: Response): Promise<voi
       }
 
       updateData.mobile_number = mobile_number;
+    }
+
+    // Handle Employee ID Update
+    if (employee_id) {
+      if (employee_id.trim().length === 0) {
+        res.status(400).json({
+          success: false,
+          error: 'Employee ID cannot be empty',
+        });
+        return;
+      }
+      
+      // Check for uniqueness
+      const existingUser = await prisma.user.findUnique({
+        where: { employee_id: employee_id.trim() },
+      });
+
+       if (existingUser && existingUser.id !== id) {
+        res.status(409).json({
+          success: false,
+          error: 'Employee ID already in use by another user',
+        });
+        return;
+      }
+
+      updateData.employee_id = employee_id.trim();
     }
 
     // Handle Password Update
@@ -517,6 +545,7 @@ export async function resetCredentials(req: Request, res: Response): Promise<voi
       data: {
         user: {
           id: updatedUser.id,
+          employee_id: updatedUser.employee_id,
           mobile_number: updatedUser.mobile_number,
           full_name: updatedUser.full_name,
           role: updatedUser.role,

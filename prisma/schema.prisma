@@ -107,6 +107,7 @@ model Attendance {
   todo_updates   String?
   notes          String?
   status         AttendanceStatus
+  is_remote      Boolean          @default(false)
   user_id        String
   user           User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
   breaks         Break[]

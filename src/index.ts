@@ -100,14 +100,19 @@ app.get('/health', async (req: Request, res: Response) => {
 app.use('/api', routes);
 
 // Serve Flutter web build from public folder
-app.use(express.static(path.join(__dirname, '../public')));
+app.use(express.static(path.join(__dirname, '../../public')));
 
 // Catch-all route to serve the Flutter app for non-API requests (for frontend routing)
 app.get('*', (req: Request, res: Response, next: NextFunction) => {
   if (req.path.startsWith('/api')) {
     return next();
   }
-  res.sendFile(path.join(__dirname, '../public/index.html'));
+  const indexPath = path.join(__dirname, '../../public/index.html');
+  if (require('fs').existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    next();
+  }
 });
 
 // ============================================

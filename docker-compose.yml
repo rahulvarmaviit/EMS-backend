@@ -11,8 +11,9 @@ services:
       # Mount secrets from host
       - ./config/.env:/usr/src/app/.env
       - ./config/service-account.json:/usr/src/app/service-account.json
-      # Persist uploads
+      # Persist uploads and public web app
       - ./uploads:/usr/src/app/uploads
+      - ./public:/usr/src/app/public
     depends_on:
       ems-backend-db:
         condition: service_healthy

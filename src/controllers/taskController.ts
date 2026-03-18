@@ -23,7 +23,7 @@ export async function createTask(req: Request, res: Response): Promise<void> {
             return;
         }
 
-        const { title, description, priority, start_date, end_date, assigned_to_id } = req.body;
+        const { title, description, priority, start_date, end_date, assigned_to_id, assigned_to_ids } = req.body;
 
         // Validate required fields
         if (!title || !title.trim()) {
@@ -38,10 +38,13 @@ export async function createTask(req: Request, res: Response): Promise<void> {
             res.status(400).json({ success: false, error: 'Task description is required' });
             return;
         }
-        if (!assigned_to_id) {
-            res.status(400).json({ success: false, error: 'Employee ID is required' });
+        if (!assigned_to_id && (!assigned_to_ids || assigned_to_ids.length === 0)) {
+            res.status(400).json({ success: false, error: 'Employee ID(s) required' });
             return;
         }
+
+        const targetUserIds: string[] = assigned_to_ids ? (Array.isArray(assigned_to_ids) ? assigned_to_ids : JSON.parse(assigned_to_ids)) : [assigned_to_id];
+
         if (!start_date || !end_date) {
             res.status(400).json({ success: false, error: 'Start date and end date are required' });
             return;
@@ -64,96 +67,101 @@ export async function createTask(req: Request, res: Response): Promise<void> {
         const taskPriority = priority && validPriorities.includes(priority) ? priority : 'P3';
 
         // Verify employee exists and belongs to a team led by this lead
-        const employee = await prisma.user.findFirst({
-            where: { id: assigned_to_id, is_active: true },
+        // Verify employees exist and belong to teams led by this lead
+        const employees = await prisma.user.findMany({
+            where: { id: { in: targetUserIds }, is_active: true },
             select: { id: true, full_name: true, team_id: true },
         });
 
-        if (!employee) {
-            res.status(404).json({ success: false, error: 'Employee not found' });
+        if (employees.length === 0) {
+            res.status(404).json({ success: false, error: 'Employees not found' });
             return;
         }
 
-        // Check that lead manages the employee's team
-        if (employee.team_id) {
-            const team = await prisma.team.findFirst({
-                where: { id: employee.team_id, lead_id: leadId },
-            });
-            if (!team) {
-                res.status(403).json({ success: false, error: 'You can only assign tasks to employees in your team' });
-                return;
+        const validEmployeeIds: string[] = [];
+        for (const emp of employees) {
+            if (emp.team_id) {
+                const team = await prisma.team.findFirst({
+                    where: { id: emp.team_id, lead_id: leadId },
+                });
+                if (team) {
+                    validEmployeeIds.push(emp.id);
+                }
             }
-        } else {
-            res.status(400).json({ success: false, error: 'Employee is not assigned to any team' });
+        }
+
+        if (validEmployeeIds.length === 0) {
+            res.status(403).json({ success: false, error: 'You can only assign tasks to employees in your team' });
             return;
         }
 
-        // Create the task
-        const task = await prisma.taskAssignment.create({
-            data: {
-                title: title.trim(),
-                description: description.trim(),
-                priority: taskPriority,
-                start_date: startDate,
-                end_date: endDate,
-                assigned_to_id,
-                assigned_by_id: leadId,
-            },
-        });
-
-        // Handle file uploads
+        // Handle file uploads first (single file array to attach to all)
         const files = req.files as Express.Multer.File[] | undefined;
-        if (files && files.length > 0) {
-            const docData = files.map((file) => ({
-                file_name: file.originalname,
-                file_path: file.path,
-                file_size: file.size,
-                mime_type: file.mimetype,
-                task_id: task.id,
-            }));
 
-            await prisma.taskDocument.createMany({ data: docData });
+        const createdTasks = [];
+        for (const empId of validEmployeeIds) {
+            const task = await prisma.taskAssignment.create({
+                data: {
+                    title: title.trim(),
+                    description: description.trim(),
+                    priority: taskPriority,
+                    start_date: startDate,
+                    end_date: endDate,
+                    assigned_to_id: empId,
+                    assigned_by_id: leadId,
+                },
+            });
+            createdTasks.push(task);
+
+            if (files && files.length > 0) {
+                const docData = files.map((file) => ({
+                    file_name: file.originalname,
+                    file_path: file.path,
+                    file_size: file.size,
+                    mime_type: file.mimetype,
+                    task_id: task.id,
+                }));
+                await prisma.taskDocument.createMany({ data: docData });
+            }
+            
+            // Send notification to employee
+            const lead = await prisma.user.findUnique({
+                where: { id: leadId },
+                select: { full_name: true },
+            });
+
+            await createNotification(
+                empId,
+                NotificationType.TASK_ASSIGNED,
+                'New Task Assigned',
+                `${lead?.full_name || 'Your Team Lead'} assigned you a new task: ${title.trim()}`,
+                { taskId: task.id, priority: taskPriority }
+            );
+
+            // Fetch full task to emit
+            const fullTask = await prisma.taskAssignment.findUnique({
+                where: { id: task.id },
+                include: {
+                    documents: true,
+                    assigned_by: { select: { id: true, full_name: true } },
+                    assigned_to: { select: { id: true, full_name: true } },
+                },
+            });
+
+            if (io) {
+                io.to(`user:${empId}`).emit('task_assigned', fullTask);
+            }
         }
 
-        // Fetch the full task with documents and assigned_by info
-        const fullTask = await prisma.taskAssignment.findUnique({
-            where: { id: task.id },
-            include: {
-                documents: true,
-                assigned_by: { select: { id: true, full_name: true } },
-                assigned_to: { select: { id: true, full_name: true } },
-            },
-        });
-
-        // Send notification to employee
-        const lead = await prisma.user.findUnique({
-            where: { id: leadId },
-            select: { full_name: true },
-        });
-
-        await createNotification(
-            assigned_to_id,
-            NotificationType.TASK_ASSIGNED,
-            'New Task Assigned',
-            `${lead?.full_name || 'Your Team Lead'} assigned you a new task: ${title.trim()}`,
-            { taskId: task.id, priority: taskPriority }
-        );
-
-        // Emit real-time socket event
-        if (io) {
-            io.to(`user:${assigned_to_id}`).emit('task_assigned', fullTask);
-        }
-
-        logger.info('Task created', {
-            taskId: task.id,
-            assignedTo: assigned_to_id,
+        logger.info('Tasks created', {
+            taskCount: createdTasks.length,
             assignedBy: leadId,
         });
 
         res.status(201).json({
             success: true,
-            message: 'Task assigned successfully',
-            data: { task: fullTask },
+            message: `Task assigned successfully to ${createdTasks.length} employee(s)`,
+            data: { tasks: createdTasks }, // optionally return the first logic block if needed
         });
     } catch (error) {
         logger.error('Create task error', { error: (error as Error).message });
@@ -339,6 +347,9 @@ export async function updateTask(req: Request, res: Response): Promise<void> {
             return;
         }
 
+        // Whenever a Lead edits a task, reset its status so the employee sees it again
+        updateData.status = 'PENDING';
+
         const updatedTask = await prisma.taskAssignment.update({
             where: { id },
             data: updateData,
@@ -391,38 +402,53 @@ export async function updateTaskStatus(req: Request, res: Response): Promise<voi
             return;
         }
 
-        const validStatuses = ['PENDING', 'IN_PROGRESS', 'BLOCKED', 'COMPLETED'];
+        const validStatuses = ['PENDING', 'IN_PROGRESS', 'BLOCKED', 'IN_REVIEW', 'COMPLETED'];
         if (!status || !validStatuses.includes(status)) {
-            res.status(400).json({ success: false, error: 'Invalid status. Use PENDING, IN_PROGRESS, BLOCKED, or COMPLETED' });
+            res.status(400).json({ success: false, error: 'Invalid status' });
             return;
         }
 
         // Verify task exists and user has access
         const existing = await prisma.taskAssignment.findUnique({
             where: { id },
-            select: { assigned_to_id: true, assigned_by_id: true, title: true },
+            select: { assigned_to_id: true, assigned_by_id: true, title: true, status: true },
         });
 
         if (!existing) {
+            console.log(`[DEBUG] Task status update failed: Task ${id} not found`);
             res.status(404).json({ success: false, error: 'Task not found' });
             return;
-        }
+        }        console.log(`[DEBUG] Task status update - User: ${userId}, Task: ${id}, AssignedTo: ${existing.assigned_to_id}, AssignedBy: ${existing.assigned_by_id}, RequestedStatus: ${status}`);
 
         // Only the assigned employee or the creating lead can update status
         if (existing.assigned_to_id !== userId && existing.assigned_by_id !== userId) {
+            console.log(`[DEBUG] PERMISSION DENIED - User ${userId} has no access to task ${id}`);
             res.status(403).json({ success: false, error: 'You do not have permission to update this task' });
             return;
         }
 
+        // Map status if needed
+        let effectiveStatus = status;
+
+        // If an employee tries to mark as COMPLETED, change it to IN_REVIEW (requires lead approval)
+        if (status === 'COMPLETED' && existing.assigned_to_id === userId && existing.assigned_by_id !== userId) {
+            console.log(`[DEBUG] Employee requested COMPLETED - Mapping to IN_REVIEW`);
+            effectiveStatus = 'IN_REVIEW';
+        } else {
+            console.log(`[DEBUG] Using effectiveStatus: ${effectiveStatus}`);
+        }
+
         const updatedTask = await prisma.taskAssignment.update({
             where: { id },
-            data: { status },
+            data: { status: effectiveStatus as any },
             include: {
                 documents: true,
                 assigned_by: { select: { id: true, full_name: true } },
                 assigned_to: { select: { id: true, full_name: true } },
             },
         });
+
+        console.log(`[DEBUG] Task updated in DB. New status: ${updatedTask.status}`);
 
         // Notify the other party about the status change
         const notifyUserId = userId === existing.assigned_to_id
@@ -433,6 +459,7 @@ export async function updateTaskStatus(req: Request, res: Response): Promise<voi
             PENDING: 'Pending',
             IN_PROGRESS: 'In Progress',
             BLOCKED: 'Blocked',
+            IN_REVIEW: 'In Review',
             COMPLETED: 'Completed',
         };
 
@@ -582,6 +609,96 @@ export async function downloadTaskDocument(req: Request, res: Response): Promise
     }
 }
 
+export async function addTaskComment(req: Request, res: Response): Promise<void> {
+    try {
+        const userId = req.user?.userId;
+        const { id } = req.params;
+        const { text } = req.body;
+
+        if (!userId) {
+            res.status(401).json({ success: false, error: 'Unauthorized' });
+            return;
+        }
+        
+        if (!text || !text.trim()) {
+            res.status(400).json({ success: false, error: 'Comment text is required' });
+            return;
+        }
+
+        const task = await prisma.taskAssignment.findUnique({
+            where: { id },
+            select: { assigned_to_id: true, assigned_by_id: true, title: true },
+        });
+
+        if (!task) {
+            res.status(404).json({ success: false, error: 'Task not found' });
+            return;
+        }
+
+        if (task.assigned_to_id !== userId && task.assigned_by_id !== userId) {
+            res.status(403).json({ success: false, error: 'You do not have permission to comment on this task' });
+            return;
+        }
+
+        const comment = await prisma.taskComment.create({
+            data: { text: text.trim(), task_id: id, user_id: userId },
+            include: { user: { select: { id: true, full_name: true, role: true } } }
+        });
+
+        const notifyUserId = userId === task.assigned_to_id ? task.assigned_by_id : task.assigned_to_id;
+
+        await createNotification(
+            notifyUserId,
+            NotificationType.TASK_COMMENTED,
+            'New Comment on Task',
+            `Someone commented on "${task.title}": ${text.substring(0, 30)}...`,
+            { taskId: id }
+        );
+
+        if (io) {
+            io.to(`user:${notifyUserId}`).emit('task_comment', comment);
+        }
+
+        res.status(201).json({ success: true, data: { comment } });
+    } catch (error) {
+        logger.error('Add task comment error', { error: (error as Error).message });
+        res.status(500).json({ success: false, error: 'Failed to add comment' });
+    }
+}
+
+export async function getTaskComments(req: Request, res: Response): Promise<void> {
+    try {
+        const userId = req.user?.userId;
+        const { id } = req.params;
+
+        if (!userId) {
+            res.status(401).json({ success: false, error: 'Unauthorized' });
+            return;
+        }
+
+        const task = await prisma.taskAssignment.findUnique({
+            where: { id },
+            select: { assigned_to_id: true, assigned_by_id: true },
+        });
+
+        if (!task || (task.assigned_to_id !== userId && task.assigned_by_id !== userId)) {
+            res.status(403).json({ success: false, error: 'Access denied' });
+            return;
+        }
+
+        const comments = await prisma.taskComment.findMany({
+            where: { task_id: id },
+            orderBy: { created_at: 'asc' },
+            include: { user: { select: { id: true, full_name: true, role: true } } }
+        });
+
+        res.json({ success: true, data: { comments } });
+    } catch (error) {
+        logger.error('Get task comments error', { error: (error as Error).message });
+        res.status(500).json({ success: false, error: 'Failed to retrieve comments' });
+    }
+}
+
 export default {
     createTask,
     getMyTasks,
@@ -591,4 +708,6 @@ export default {
     updateTaskStatus,
     deleteTask,
     downloadTaskDocument,
+    addTaskComment,
+    getTaskComments,
 };

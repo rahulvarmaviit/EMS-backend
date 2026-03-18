@@ -1,5 +1,5 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   binaryTargets = ["native", "debian-openssl-1.1.x", "debian-openssl-3.0.x", "linux-musl-openssl-3.0.x"]
 }
 
@@ -9,52 +9,52 @@ datasource db {
 }
 
 model User {
-  id            String         @id @default(uuid())
-  employee_id   String         @unique
-  password_hash String
-  must_change_password Boolean @default(true)
-  full_name     String
-  mobile_number String?        @unique
-  email         String?        @unique
-  role          Role           @default(EMPLOYEE)
-  is_active     Boolean        @default(true)
-  created_at    DateTime       @default(now())
-  team_id       String?
-  dob           DateTime?      // Date of Birth
-  gender        String?        // Gender
-  fcm_token     String?        // Firebase Cloud Messaging token for push notifications
-  attendance    Attendance[]
-  leaves        LeaveRequest[]
-  login_history LoginHistory[]
-  documents     Document[]
-  notifications Notification[]
-  managed_teams Team[]         @relation("TeamLead")
-  team          Team?          @relation("TeamMembers", fields: [team_id], references: [id])
-  device_id     String?        // For Device Binding
-  approved_leaves LeaveRequest[] @relation("ApprovedLeaves")
-  rejected_leaves LeaveRequest[] @relation("RejectedLeaves")
-  revoked_leaves  LeaveRequest[] @relation("RevokedLeaves")
-  game_scores     GameScore[]
-  assigned_tasks  TaskAssignment[] @relation("AssignedTasks")
-  created_tasks   TaskAssignment[] @relation("CreatedTasks")
+  id                   String           @id @default(uuid())
+  mobile_number        String?          @unique
+  password_hash        String
+  full_name            String
+  role                 Role             @default(EMPLOYEE)
+  is_active            Boolean          @default(true)
+  created_at           DateTime         @default(now())
+  team_id              String?
+  email                String?          @unique
+  device_id            String?
+  fcm_token            String?
+  employee_id          String           @unique
+  must_change_password Boolean          @default(true)
+  dob                  DateTime?
+  gender               String?
+  attendance           Attendance[]
+  documents            Document[]
+  game_scores          GameScore[]
+  approved_leaves      LeaveRequest[]   @relation("ApprovedLeaves")
+  rejected_leaves      LeaveRequest[]   @relation("RejectedLeaves")
+  revoked_leaves       LeaveRequest[]   @relation("RevokedLeaves")
+  leaves               LeaveRequest[]
+  login_history        LoginHistory[]
+  notifications        Notification[]
+  created_tasks        TaskAssignment[] @relation("CreatedTasks")
+  assigned_tasks       TaskAssignment[] @relation("AssignedTasks")
+  task_comments        TaskComment[]
+  managed_teams        Team[]           @relation("TeamLead")
+  team                 Team?            @relation("TeamMembers", fields: [team_id], references: [id])
 
   @@map("users")
 }
 
 model GameScore {
-  id          String   @id @default(uuid())
-  game_name   String
-  score       Int
-  moves       Int?     // For memory match, fewer moves = better
-  time_taken  Int?     // In seconds
-  played_at   DateTime @default(now())
-  user_id     String
-  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  id         String   @id @default(uuid())
+  game_name  String
+  score      Int
+  moves      Int?
+  time_taken Int?
+  played_at  DateTime @default(now())
+  user_id    String
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
-  @@index([game_name, score(sort: Desc)]) // For leaderboard
+  @@index([game_name, score(sort: Desc)])
   @@map("game_scores")
 }
-
 
 model LoginHistory {
   id           String   @id @default(uuid())
@@ -99,16 +99,16 @@ model Attendance {
   check_out_time DateTime?
   check_in_lat   Decimal
   check_in_long  Decimal
+  status         AttendanceStatus
+  user_id        String
   check_out_lat  Decimal?
   check_out_long Decimal?
-  work_done      String?
-  project_name   String?
   meetings       String?
-  todo_updates   String?
   notes          String?
-  status         AttendanceStatus
+  project_name   String?
+  todo_updates   String?
+  work_done      String?
   is_remote      Boolean          @default(false)
-  user_id        String
   user           User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
   breaks         Break[]
 
@@ -119,9 +119,9 @@ model Attendance {
 model Break {
   id            String     @id @default(uuid())
   type          BreakType
-  duration_min  Int        // Expected duration in minutes (5, 15, 60)
+  duration_min  Int
   start_time    DateTime   @default(now())
-  end_time      DateTime?  // Null means break is still active
+  end_time      DateTime?
   attendance_id String
   attendance    Attendance @relation(fields: [attendance_id], references: [id], onDelete: Cascade)
 
@@ -129,35 +129,159 @@ model Break {
   @@map("breaks")
 }
 
+model LeaveRequest {
+  id                String      @id @default(uuid())
+  start_date        DateTime    @db.Date
+  end_date          DateTime    @db.Date
+  reason            String
+  status            LeaveStatus @default(PENDING)
+  created_at        DateTime    @default(now())
+  updated_at        DateTime    @updatedAt
+  user_id           String
+  approved_by_id    String?
+  rejected_by_id    String?
+  revocation_reason String?
+  revoked_by_id     String?
+  response_reason   String?
+  response_subject  String?
+  subject           String      @default("Leave Request")
+  approved_by       User?       @relation("ApprovedLeaves", fields: [approved_by_id], references: [id])
+  rejected_by       User?       @relation("RejectedLeaves", fields: [rejected_by_id], references: [id])
+  revoked_by        User?       @relation("RevokedLeaves", fields: [revoked_by_id], references: [id])
+  user              User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@map("leave_requests")
+}
+
+model Document {
+  id          String   @id @default(uuid())
+  title       String
+  file_path   String
+  uploaded_at DateTime @default(now())
+  user_id     String
+  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@map("documents")
+}
+
+model Notification {
+  id         String           @id @default(uuid())
+  type       NotificationType
+  title      String
+  message    String
+  is_read    Boolean          @default(false)
+  data       Json?
+  created_at DateTime         @default(now())
+  user_id    String
+  user       User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, created_at])
+  @@map("notifications")
+}
+
+model Announcement {
+  id         String           @id @default(uuid())
+  title      String
+  message    String
+  type       AnnouncementType @default(NORMAL)
+  created_at DateTime         @default(now())
+  expires_at DateTime?
+  is_active  Boolean          @default(true)
+
+  @@map("announcements")
+}
+
+model Event {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  event_date  DateTime
+  location    String?
+  created_at  DateTime @default(now())
+  is_active   Boolean  @default(true)
+
+  @@map("events")
+}
+
+model Quote {
+  id         String   @id @default(uuid())
+  text       String
+  author     String?
+  is_active  Boolean  @default(true)
+  is_system  Boolean  @default(false)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("quotes")
+}
+
+model TaskAssignment {
+  id             String         @id @default(uuid())
+  title          String         @db.VarChar(100)
+  description    String
+  priority       TaskPriority   @default(P3)
+  status         TaskStatus     @default(PENDING)
+  start_date     DateTime
+  end_date       DateTime
+  assigned_to_id String
+  assigned_by_id String
+  created_at     DateTime       @default(now())
+  updated_at     DateTime       @updatedAt
+  assigned_by    User           @relation("CreatedTasks", fields: [assigned_by_id], references: [id], onDelete: Cascade)
+  assigned_to    User           @relation("AssignedTasks", fields: [assigned_to_id], references: [id], onDelete: Cascade)
+  comments       TaskComment[]
+  documents      TaskDocument[]
+
+  @@index([assigned_to_id])
+  @@index([assigned_by_id])
+  @@map("task_assignments")
+}
+
+model TaskDocument {
+  id          String         @id @default(uuid())
+  file_name   String
+  file_path   String
+  file_size   Int
+  mime_type   String
+  task_id     String
+  uploaded_at DateTime       @default(now())
+  task        TaskAssignment @relation(fields: [task_id], references: [id], onDelete: Cascade)
+
+  @@index([task_id])
+  @@map("task_documents")
+}
+
+model TaskComment {
+  id         String         @id @default(uuid())
+  text       String
+  task_id    String
+  user_id    String
+  created_at DateTime       @default(now())
+  updated_at DateTime       @updatedAt
+  task       TaskAssignment @relation(fields: [task_id], references: [id], onDelete: Cascade)
+  user       User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([task_id, created_at])
+  @@index([user_id])
+  @@map("task_comments")
+}
+
+model Project {
+  id         String   @id @default(uuid())
+  name       String   @unique
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("projects")
+}
+
 enum BreakType {
   WALKING
   TEA
   LUNCH
-}
-
-model LeaveRequest {
-  id          String      @id @default(uuid())
-  start_date  DateTime    @db.Date
-  end_date    DateTime    @db.Date
-  subject     String      @default("Leave Request") // Default for existing records
-  reason      String
-  status      LeaveStatus @default(PENDING)
-  created_at  DateTime    @default(now())
-  updated_at      DateTime    @updatedAt
-  user_id         String
-  user            User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  approved_by_id  String?
-  approved_by     User?       @relation("ApprovedLeaves", fields: [approved_by_id], references: [id])
-  rejected_by_id  String?
-  rejected_by     User?       @relation("RejectedLeaves", fields: [rejected_by_id], references: [id])
-  revoked_by_id   String?
-  revoked_by      User?       @relation("RevokedLeaves", fields: [revoked_by_id], references: [id])
-  revocation_reason String?
-  response_subject  String?
-  response_reason   String?
-
-  @@index([user_id])
-  @@map("leave_requests")
 }
 
 enum Role {
@@ -181,33 +305,6 @@ enum LeaveStatus {
   REVOKED
 }
 
-model Document {
-  id          String   @id @default(uuid())
-  title       String
-  file_path   String
-  uploaded_at DateTime @default(now())
-  user_id     String
-  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-
-  @@index([user_id])
-  @@map("documents")
-}
-
-model Notification {
-  id          String           @id @default(uuid())
-  type        NotificationType
-  title       String
-  message     String
-  is_read     Boolean          @default(false)
-  data        Json?            // Optional payload (e.g., leave_id, user_id)
-  created_at  DateTime         @default(now())
-  user_id     String           // Recipient
-  user        User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
-
-  @@index([user_id, created_at])
-  @@map("notifications")
-}
-
 enum NotificationType {
   USER_LOGIN
   ATTENDANCE_CHECKIN
@@ -224,18 +321,8 @@ enum NotificationType {
   BREAK_COMPLETED
   TASK_ASSIGNED
   TASK_UPDATED
-}
-
-model Announcement {
-  id          String           @id @default(uuid())
-  title       String
-  message     String
-  type        AnnouncementType @default(NORMAL)
-  created_at  DateTime         @default(now())
-  expires_at  DateTime?
-  is_active   Boolean          @default(true)
-
-  @@map("announcements")
+  TASK_COMMENTED
+  TASK_REVIEW_REQUESTED
 }
 
 enum AnnouncementType {
@@ -243,34 +330,10 @@ enum AnnouncementType {
   URGENT
 }
 
-model Event {
-  id          String   @id @default(uuid())
-  title       String
-  description String
-  event_date  DateTime
-  location    String?
-  created_at  DateTime @default(now())
-  is_active   Boolean  @default(true)
-
-  @@map("events")
-}
-
-model Quote {
-  id          String   @id @default(uuid())
-  text        String
-  author      String?
-  is_active   Boolean  @default(true)
-  is_system   Boolean  @default(false) // For original hardcoded quotes
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
-
-  @@map("quotes")
-}
-
 enum TaskPriority {
-  P1  // Critical - Red
-  P2  // High - Orange
-  P3  // Medium - Green
+  P1
+  P2
+  P3
 }
 
 enum TaskStatus {
@@ -278,49 +341,5 @@ enum TaskStatus {
   IN_PROGRESS
   BLOCKED
   COMPLETED
-}
-
-model TaskAssignment {
-  id             String         @id @default(uuid())
-  title          String         @db.VarChar(100)
-  description    String
-  priority       TaskPriority   @default(P3)
-  status         TaskStatus     @default(PENDING)
-  start_date     DateTime
-  end_date       DateTime
-  assigned_to_id String
-  assigned_to    User           @relation("AssignedTasks", fields: [assigned_to_id], references: [id], onDelete: Cascade)
-  assigned_by_id String
-  assigned_by    User           @relation("CreatedTasks", fields: [assigned_by_id], references: [id], onDelete: Cascade)
-  documents      TaskDocument[]
-  created_at     DateTime       @default(now())
-  updated_at     DateTime       @updatedAt
-
-  @@index([assigned_to_id])
-  @@index([assigned_by_id])
-  @@map("task_assignments")
-}
-
-model TaskDocument {
-  id               String          @id @default(uuid())
-  file_name        String
-  file_path        String
-  file_size        Int
-  mime_type        String
-  task_id          String
-  task             TaskAssignment  @relation(fields: [task_id], references: [id], onDelete: Cascade)
-  uploaded_at      DateTime        @default(now())
-
-  @@index([task_id])
-  @@map("task_documents")
-}
-
-model Project {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  is_active   Boolean  @default(true)
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
-
-  @@map("projects")
+  IN_REVIEW
 }

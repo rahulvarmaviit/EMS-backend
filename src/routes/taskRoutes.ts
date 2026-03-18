@@ -15,6 +15,8 @@ import {
     updateTaskStatus,
     deleteTask,
     downloadTaskDocument,
+    addTaskComment,
+    getTaskComments,
 } from '../controllers/taskController';
 
 const router = Router();
@@ -117,5 +119,9 @@ router.delete('/:id', authenticate, authorize('LEAD'), deleteTask);
 
 // Download task document
 router.get('/document/:id', authenticate, downloadTaskDocument);
+
+// Task comments
+router.post('/:id/comments', authenticate, addTaskComment);
+router.get('/:id/comments', authenticate, getTaskComments);
 
 export default router;

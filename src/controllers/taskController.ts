@@ -615,12 +615,16 @@ export async function addTaskComment(req: Request, res: Response): Promise<void>
         const { id } = req.params;
         const { text } = req.body;
 
+        console.log(`[DEBUG] addTaskComment start - userId: ${userId}, taskId: ${id}, text length: ${text?.length}`);
+
         if (!userId) {
+            console.log(`[DEBUG] addTaskComment: Unauthorized (no userId)`);
             res.status(401).json({ success: false, error: 'Unauthorized' });
             return;
         }
         
         if (!text || !text.trim()) {
+            console.log(`[DEBUG] addTaskComment: Empty text`);
             res.status(400).json({ success: false, error: 'Comment text is required' });
             return;
         }
@@ -631,36 +635,55 @@ export async function addTaskComment(req: Request, res: Response): Promise<void>
         });
 
         if (!task) {
+            console.log(`[DEBUG] addTaskComment: Task not found`);
             res.status(404).json({ success: false, error: 'Task not found' });
             return;
         }
 
-        if (task.assigned_to_id !== userId && task.assigned_by_id !== userId) {
+        const userRole = req.user?.role;
+        console.log(`[DEBUG] addTaskComment: task.assigned_to_id=${task.assigned_to_id}, task.assigned_by_id=${task.assigned_by_id}, userRole=${userRole}`);
+
+        if (
+            task.assigned_to_id !== userId && 
+            task.assigned_by_id !== userId && 
+            userRole !== 'ADMIN' && 
+            userRole !== 'POSTGRES_SQL'
+        ) {
+            console.log(`[DEBUG] addTaskComment: PERMISSION DENIED`);
             res.status(403).json({ success: false, error: 'You do not have permission to comment on this task' });
             return;
         }
 
+        console.log(`[DEBUG] addTaskComment: Creating comment in DB`);
         const comment = await prisma.taskComment.create({
             data: { text: text.trim(), task_id: id, user_id: userId },
             include: { user: { select: { id: true, full_name: true, role: true } } }
         });
+        
+        console.log(`[DEBUG] addTaskComment: Comment created - ID: ${comment.id}`);
 
-        const notifyUserId = userId === task.assigned_to_id ? task.assigned_by_id : task.assigned_to_id;
+        const notifyUsers = new Set([task.assigned_to_id, task.assigned_by_id]);
+        notifyUsers.delete(userId);
 
-        await createNotification(
-            notifyUserId,
-            NotificationType.TASK_COMMENTED,
-            'New Comment on Task',
-            `Someone commented on "${task.title}": ${text.substring(0, 30)}...`,
-            { taskId: id }
-        );
+        for (const targetId of notifyUsers) {
+            console.log(`[DEBUG] addTaskComment: Notifying targetId ${targetId}`);
+            await createNotification(
+                targetId,
+                NotificationType.TASK_COMMENTED,
+                'New Comment on Task',
+                `Someone commented on "${task.title}": ${text.substring(0, 30)}...`,
+                { taskId: id }
+            );
 
-        if (io) {
-            io.to(`user:${notifyUserId}`).emit('task_comment', comment);
+            if (io) {
+                io.to(`user:${targetId}`).emit('task_comment', comment);
+            }
         }
 
+        console.log(`[DEBUG] addTaskComment: Success! Returns 201`);
         res.status(201).json({ success: true, data: { comment } });
     } catch (error) {
+        console.error(`[DEBUG] addTaskComment ERROR EXCEPTION:`, error);
         logger.error('Add task comment error', { error: (error as Error).message });
         res.status(500).json({ success: false, error: 'Failed to add comment' });
     }
@@ -681,7 +704,13 @@ export async function getTaskComments(req: Request, res: Response): Promise<void
             select: { assigned_to_id: true, assigned_by_id: true },
         });
 
-        if (!task || (task.assigned_to_id !== userId && task.assigned_by_id !== userId)) {
+        const userRole = req.user?.role;
+        if (!task || (
+            task.assigned_to_id !== userId && 
+            task.assigned_by_id !== userId &&
+            userRole !== 'ADMIN' && 
+            userRole !== 'POSTGRES_SQL'
+        )) {
             res.status(403).json({ success: false, error: 'Access denied' });
             return;
         }
